@@ -8,13 +8,14 @@ An advanced, hospital-grade AI Voice Triage and Clinical Management Dashboard. T
 
 ## 🚀 Frontier Clinical Features
 
-### 1. **Frontier AI Decision Support (Gemini 2.0 Flash)**
+### 1. **Frontier AI Decision Support (Gemini 2.5 Pro)**
+- **State-of-the-Art Reasoning:** Leverages Gemini 2.5 Pro for unmatched clinical reasoning and ICD-10 medical coding precision.
 - **Automated Care Plans:** Instantly generates empathetic patient follow-up instructions based on the triage interaction.
 - **Clinical Second Opinion:** Provides doctors with a "psychology" layer—detecting subtle risks or missed symptoms in the patient's voice.
-- **Medical Billing (ICD-10):** Automatically suggests diagnosis codes based on the clinical summary to accelerate insurance reimbursement.
+- **Medical Billing (ICD-10):** Automatically suggests diagnosis codes to accelerate insurance reimbursement.
 
 ### 2. **Interactive RAG: "Chat with the Case"**
-- Doctors can interrogate the full call transcript via an integrated AI chat interface. 
+- Doctors can interrogate the full call transcript via an integrated AI chat interface powered by Gemini 2.5 Pro. 
 - Ask complex questions like *"What medications did the patient mention?"* or *"Was there a history of asthma?"* and get instant, grounded answers.
 
 ### 3. **EMR-Linked Patient Management**
@@ -32,7 +33,7 @@ An advanced, hospital-grade AI Voice Triage and Clinical Management Dashboard. T
 
 - **Framework:** [Next.js 15+](https://nextjs.org/) (App Router)
 - **Voice Intelligence:** [Vapi.ai](https://vapi.ai/)
-- **AI Frontier Model:** [Google Gemini 2.0 Flash](https://ai.google.dev/)
+- **AI Frontier Model:** [Google Gemini 2.5 Pro](https://ai.google.dev/)
 - **Database:** [Neon PostgreSQL](https://neon.tech/)
 - **ORM:** [Drizzle ORM](https://orm.drizzle.team/)
 - **Authentication:** [Clerk](https://clerk.com/)
