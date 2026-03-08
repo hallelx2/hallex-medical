@@ -11,7 +11,7 @@ export async function GET() {
 
   try {
     const logs = await db.query.auditLogs.findMany({
-      orderBy: (logs, { desc }) => [desc(logs.timestamp)],
+      orderBy: (table: any, { desc }: any) => [desc(table.timestamp)],
       limit: 100, // Reasonable limit for MVP
     });
     return NextResponse.json(logs);
