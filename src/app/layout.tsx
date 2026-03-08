@@ -27,7 +27,13 @@ export default function RootLayout({
         />
       </head>
       <body className={`${lexend.variable} font-display antialiased`}>
-        <ClerkProvider>
+        <ClerkProvider
+          appearance={{
+            elements: {
+              footer: "hidden",
+            },
+          }}
+        >
           {children}
         </ClerkProvider>
       </body>
