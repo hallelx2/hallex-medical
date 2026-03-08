@@ -41,7 +41,6 @@ export default function SignInPage() {
 
   return (
     <div className="flex min-h-screen bg-white font-jakarta">
-      {/* Left Side: 100% Custom Form */}
       <div className="w-full lg:w-1/2 flex flex-col items-center justify-center p-8 lg:p-16">
         <div className="w-full max-w-md">
           <div className="mb-10 text-left">
@@ -110,7 +109,6 @@ export default function SignInPage() {
         </div>
       </div>
 
-      {/* Right Side */}
       <div className="hidden lg:flex w-1/2 bg-slate-950 relative overflow-hidden items-center justify-center p-20">
         <div className="absolute inset-0 opacity-20 pointer-events-none">
            <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary via-transparent to-transparent"></div>

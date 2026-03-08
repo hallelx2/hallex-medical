@@ -69,7 +69,7 @@ export default function SignUpPage() {
             <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-white shadow-lg shadow-primary/20">
               <span className="material-symbols-outlined text-2xl font-bold">medical_services</span>
             </div>
-            <h1 className="text-3xl font-extrabold tracking-tight uppercase tracking-tighter">Registration</h1>
+            <h1 className="text-3xl font-extrabold tracking-tight uppercase tracking-tighter text-slate-900">Registration</h1>
             <p className="mt-3 text-slate-500 font-medium">Initialize clinical credentials at St. Mary's.</p>
           </div>
 
@@ -174,18 +174,18 @@ export default function SignUpPage() {
            </svg>
         </div>
         
-        <div className="relative z-10 max-w-xl text-left text-white">
+        <div className="relative z-10 max-w-xl text-left text-white font-jakarta">
           <span className="material-symbols-outlined text-white text-7xl mb-8 opacity-50 font-light">healing</span>
-          <h2 className="text-5xl font-black leading-[1.1] tracking-tight mb-8 font-jakarta">
+          <h2 className="text-5xl font-black leading-[1.1] tracking-tight mb-8">
             "Wherever the art of medicine is loved, there is also a <span className="text-blue-200 underline decoration-wavy underline-offset-8">love of humanity</span>."
           </h2>
           <div className="flex items-center gap-4">
              <div className="h-px w-12 bg-white/50"></div>
-             <p className="text-xl text-blue-100 font-bold uppercase tracking-widest font-jakarta">Hippocrates</p>
+             <p className="text-xl text-blue-100 font-bold uppercase tracking-widest">Hippocrates</p>
           </div>
         </div>
         
-        <div className="absolute bottom-12 right-12 flex items-center gap-3 text-white/30 font-bold uppercase tracking-widest text-[10px] font-jakarta">
+        <div className="absolute bottom-12 right-12 flex items-center gap-3 text-white/30 font-bold uppercase tracking-widest text-[10px]">
            <span>Clinical Excellence</span>
            <div className="size-1 bg-white/30 rounded-full"></div>
            <span>Patient First</span>
