@@ -64,7 +64,7 @@ export default function OverviewPage() {
 
   return (
     <DashboardLayout>
-      <div className="p-8">
+      <div className="p-8 relative min-h-full">
         {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
@@ -111,9 +111,9 @@ export default function OverviewPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
-          {/* Triage Queue Table */}
-          <div className="xl:col-span-7 space-y-6">
+        <div className="grid grid-cols-1 gap-8">
+          {/* Triage Queue Table - Now takes full width */}
+          <div className="space-y-6">
             <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col min-h-[600px]">
               <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900 sticky top-0 z-[5]">
                 <h3 className="font-bold text-lg flex items-center gap-2">
@@ -132,8 +132,8 @@ export default function OverviewPage() {
                   <thead>
                     <tr className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 text-[10px] uppercase font-bold tracking-[0.1em]">
                       <th className="px-6 py-4">Patient</th>
-                      <th className="px-6 py-4">AI Analysis</th>
-                      <th className="px-6 py-4">Assignment</th>
+                      <th className="px-6 py-4">Clinical Overview</th>
+                      <th className="px-6 py-4">Assignment Status</th>
                       <th className="px-6 py-4 text-right">Action</th>
                     </tr>
                   </thead>
@@ -146,35 +146,41 @@ export default function OverviewPage() {
                       >
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
-                            <div className={`size-8 rounded-full flex items-center justify-center font-bold text-xs uppercase ${call.redFlagsPresent ? 'bg-red-500 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>
+                            <div className={`size-10 rounded-full flex items-center justify-center font-bold text-sm uppercase ${call.redFlagsPresent ? 'bg-red-500 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}>
                               {call.customerNumber.slice(-2)}
                             </div>
                             <div>
-                              <span className="font-bold text-sm block">{call.customerNumber}</span>
-                              <span className="text-[10px] text-slate-400 font-mono">{new Date(call.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                              <span className="font-bold text-base block">{call.customerNumber}</span>
+                              <span className="text-[10px] text-slate-400 font-mono tracking-tighter uppercase">{new Date(call.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span>
                             </div>
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                           <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase border mb-1 inline-block ${
-                              call.priority === 'High' ? 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400' :
-                              call.priority === 'Medium' ? 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400' :
-                              'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400'
-                           }`}>
-                             {call.priority}
-                           </span>
-                           <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-1 max-w-[180px]">
-                              {call.doctorSummary || call.chiefComplaint}
-                           </p>
+                           <div className="flex flex-col gap-1.5">
+                              <span className={`w-fit px-2 py-0.5 rounded-full text-[9px] font-bold uppercase border ${
+                                 call.priority === 'High' ? 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400' :
+                                 call.priority === 'Medium' ? 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400' :
+                                 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400'
+                              }`}>
+                                {call.priority} Priority
+                              </span>
+                              <p className="text-sm text-slate-600 dark:text-slate-400 font-medium line-clamp-1 italic">
+                                 {call.chiefComplaint || 'Awaiting clinical data...'}
+                              </p>
+                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <span className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1">
-                             <span className={`size-1.5 rounded-full ${call.assignedDoctor ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
-                             {call.assignedDoctor ? call.assignedDoctor.split(' ').pop() : 'Pending'}
-                          </span>
+                          <div className="flex items-center gap-2">
+                             <div className={`size-2 rounded-full ${call.assignedDoctor ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`}></div>
+                             <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                                {call.assignedDoctor ? call.assignedDoctor : 'Unassigned'}
+                             </span>
+                          </div>
                         </td>
                         <td className="px-6 py-4 text-right">
-                           <span className="material-symbols-outlined text-slate-300 group-hover:text-primary transition-colors">chevron_right</span>
+                           <button className="bg-slate-100 dark:bg-slate-800 hover:bg-primary hover:text-white p-2 rounded-lg transition-all">
+                              <span className="material-symbols-outlined text-xl">visibility</span>
+                           </button>
                         </td>
                       </tr>
                     ))}
@@ -183,137 +189,186 @@ export default function OverviewPage() {
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Right Column: Detailed Case Review */}
-          <div className="xl:col-span-5">
-            {selectedCase ? (
-              <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden flex flex-col h-[700px] animate-in slide-in-from-right-4 duration-500">
-                <div className={`p-6 text-white ${selectedCase.redFlagsPresent ? 'bg-red-600' : 'bg-primary'}`}>
-                   <div className="flex justify-between items-start mb-4">
-                      <div>
-                         <h3 className="font-bold text-xl flex items-center gap-2">
-                            <span className="material-symbols-outlined">clinical_notes</span>
-                            Case Review: {selectedCase.customerNumber}
-                         </h3>
-                         <p className="text-xs text-white/80 font-bold uppercase tracking-widest mt-1">
-                            Vapi Interaction ID: {selectedCase.vapiCallId.slice(-12)}
-                         </p>
-                      </div>
-                      <span className="px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-[10px] font-bold uppercase">
-                         {selectedCase.triageGrade || 'Standard'}
-                      </span>
-                   </div>
-                   
-                   {selectedCase.recordingUrl && (
-                     <div className="bg-white/10 rounded-lg p-2 flex items-center gap-3">
-                        <span className="material-symbols-outlined">play_circle</span>
-                        <div className="flex-1 h-1 bg-white/30 rounded-full overflow-hidden">
-                           <div className="h-full bg-white w-1/3"></div>
+        {/* SIDEBAR SLIDER (DRAWER) */}
+        {selectedCaseId && (
+          <>
+            {/* Backdrop Overlay */}
+            <div 
+              className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-[40] transition-opacity animate-in fade-in duration-300"
+              onClick={() => setSelectedCaseId(null)}
+            />
+            
+            {/* Drawer Panel */}
+            <div className="fixed inset-y-0 right-0 w-full max-w-2xl bg-white dark:bg-slate-900 z-[50] shadow-2xl border-l border-slate-200 dark:border-slate-800 flex flex-col animate-in slide-in-from-right duration-500 ease-in-out">
+              {selectedCase ? (
+                <>
+                  {/* Drawer Header */}
+                  <div className={`p-8 text-white relative shrink-0 ${selectedCase.redFlagsPresent ? 'bg-red-600' : 'bg-primary'}`}>
+                    <button 
+                      onClick={() => setSelectedCaseId(null)}
+                      className="absolute top-6 right-6 size-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all group"
+                    >
+                      <span className="material-symbols-outlined group-hover:rotate-90 transition-transform">close</span>
+                    </button>
+
+                    <div className="flex flex-col gap-4 mt-2">
+                      <div className="flex items-center gap-3">
+                        <div className="size-12 rounded-xl bg-white/20 flex items-center justify-center">
+                          <span className="material-symbols-outlined text-3xl">clinical_notes</span>
                         </div>
-                        <a href={selectedCase.recordingUrl} target="_blank" rel="noreferrer" className="text-[10px] font-bold underline">Listen</a>
-                     </div>
-                   )}
-                </div>
+                        <div>
+                          <h3 className="font-bold text-2xl tracking-tight leading-none">
+                            {selectedCase.customerNumber}
+                          </h3>
+                          <p className="text-xs text-white/70 font-bold uppercase tracking-widest mt-1">
+                            Interaction ID: {selectedCase.vapiCallId.slice(-12)}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex flex-wrap gap-2">
+                        <span className="px-3 py-1 bg-white/20 backdrop-blur-md rounded-lg text-[10px] font-bold uppercase tracking-tighter">
+                           Triage: {selectedCase.triageGrade || 'Standard'}
+                        </span>
+                        <span className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-tighter ${selectedCase.redFlagsPresent ? 'bg-white text-red-600' : 'bg-white/20 text-white'}`}>
+                           {selectedCase.redFlagsPresent ? 'Red Flags Detected' : 'No Critical Flags'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
 
-                <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
-                   <section>
-                      <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                         <span className="material-symbols-outlined text-sm">summarize</span> Clinical Summary
+                  {/* Drawer Content */}
+                  <div className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
+                    {selectedCase.recordingUrl && (
+                      <section>
+                        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Call Recording</h4>
+                        <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 flex items-center gap-4 border border-slate-100 dark:border-slate-800">
+                           <button className="size-12 rounded-full bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all">
+                              <span className="material-symbols-outlined text-2xl">play_arrow</span>
+                           </button>
+                           <div className="flex-1 space-y-1">
+                              <div className="h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                                 <div className="h-full bg-primary w-1/3"></div>
+                              </div>
+                              <div className="flex justify-between text-[10px] font-bold text-slate-400">
+                                 <span>0:42</span>
+                                 <span>2:15</span>
+                              </div>
+                           </div>
+                           <a href={selectedCase.recordingUrl} target="_blank" rel="noreferrer" className="text-xs font-bold text-primary hover:underline">Download</a>
+                        </div>
+                      </section>
+                    )}
+
+                    <section>
+                      <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                         <span className="material-symbols-outlined text-sm text-primary">summarize</span> AI Clinical Analysis
                       </h4>
-                      <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
-                         <p className="text-sm text-slate-700 dark:text-slate-200 leading-relaxed font-medium italic">
-                            "{selectedCase.doctorSummary || 'No summary generated.'}"
+                      <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+                         <p className="text-base text-slate-700 dark:text-slate-200 leading-relaxed font-medium italic">
+                            "{selectedCase.doctorSummary || 'Awaiting summary generation...'}"
                          </p>
                       </div>
-                   </section>
+                    </section>
 
-                   <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl">
-                         <p className="text-[9px] font-bold text-slate-400 uppercase mb-1">Chief Complaint</p>
-                         <p className="text-xs font-bold text-slate-700 dark:text-slate-200">{selectedCase.chiefComplaint || 'N/A'}</p>
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-2xl border border-slate-100 dark:border-slate-800">
+                         <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2">Chief Complaint</p>
+                         <p className="text-sm font-bold text-slate-800 dark:text-white">{selectedCase.chiefComplaint || 'N/A'}</p>
                       </div>
-                      <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl">
-                         <p className="text-[9px] font-bold text-slate-400 uppercase mb-1">Severity Scale</p>
-                         <div className="flex items-center gap-2">
-                            <div className="flex-1 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                               <div className={`h-full ${selectedCase.severityScale && selectedCase.severityScale > 7 ? 'bg-red-500' : 'bg-primary'}`} style={{ width: `${(selectedCase.severityScale || 0) * 10}%` }}></div>
+                      <div className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-2xl border border-slate-100 dark:border-slate-800">
+                         <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2">Severity Rating</p>
+                         <div className="flex items-center gap-3">
+                            <div className="flex-1 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                               <div className={`h-full transition-all duration-1000 ${selectedCase.severityScale && selectedCase.severityScale > 7 ? 'bg-red-500' : 'bg-primary'}`} style={{ width: `${(selectedCase.severityScale || 0) * 10}%` }}></div>
                             </div>
-                            <span className="text-xs font-bold">{selectedCase.severityScale || 0}/10</span>
+                            <span className="text-sm font-black">{selectedCase.severityScale || 0}/10</span>
                          </div>
                       </div>
-                   </div>
+                    </div>
 
-                   <section>
-                      <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Recommended Action</h4>
-                      <div className={`p-4 rounded-xl border ${selectedCase.redFlagsPresent ? 'bg-red-50 border-red-100 text-red-700' : 'bg-emerald-50 border-emerald-100 text-emerald-700'}`}>
-                         <p className="text-xs font-bold flex items-center gap-2">
-                            <span className="material-symbols-outlined text-sm">{selectedCase.redFlagsPresent ? 'emergency' : 'check_circle'}</span>
-                            {selectedCase.recommendedAction || 'Monitor symptoms and follow up as needed.'}
+                    <section>
+                      <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Immediate Recommended Action</h4>
+                      <div className={`p-6 rounded-2xl border flex items-start gap-4 transition-all ${selectedCase.redFlagsPresent ? 'bg-red-50 border-red-100 text-red-700 dark:bg-red-900/10 dark:border-red-900/20' : 'bg-emerald-50 border-emerald-100 text-emerald-700 dark:bg-emerald-900/10 dark:border-emerald-900/20'}`}>
+                         <span className="material-symbols-outlined text-3xl mt-0.5">{selectedCase.redFlagsPresent ? 'emergency' : 'verified_user'}</span>
+                         <p className="text-sm font-bold leading-relaxed">
+                            {selectedCase.recommendedAction || 'Continue monitoring symptoms and follow protocol if condition changes.'}
                          </p>
                       </div>
-                   </section>
+                    </section>
 
-                   <section>
-                      <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                         <span className="material-symbols-outlined text-sm">forum</span> Full Transcript
+                    <section>
+                      <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2 sticky top-0 bg-white dark:bg-slate-900 py-2 z-10">
+                         <span className="material-symbols-outlined text-sm text-primary">forum</span> Interaction Transcript
                       </h4>
-                      <div className="space-y-4">
+                      <div className="space-y-4 pb-8">
                          {selectedCase.transcript ? (
                            selectedCase.transcript.split('\n').map((line, i) => (
-                             <div key={i} className="text-xs leading-relaxed text-slate-600 dark:text-slate-400 pb-2 border-b border-slate-50 dark:border-slate-800/50 last:border-0">
+                             <div key={i} className="text-sm leading-relaxed text-slate-600 dark:text-slate-400 pb-4 border-b border-slate-50 dark:border-slate-800 last:border-0">
                                 {line}
                              </div>
                            ))
                          ) : (
-                           <p className="text-xs text-slate-400 italic">No transcript available for this call.</p>
+                           <p className="text-sm text-slate-400 italic">No transcript recorded.</p>
                          )}
                       </div>
-                   </section>
-                </div>
+                    </section>
+                  </div>
 
-                <div className="p-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex gap-3">
-                   <button 
-                     onClick={() => setIsAssigning(selectedCase.vapiCallId)}
-                     className="flex-1 bg-primary text-white font-bold py-3 rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
-                   >
-                      <span className="material-symbols-outlined text-sm">person_add</span>
-                      {selectedCase.assignedDoctor ? 'Change Assignment' : 'Assign Doctor'}
-                   </button>
-                   {isAssigning === selectedCase.vapiCallId && (
-                     <div className="absolute inset-x-0 bottom-0 p-6 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 animate-in slide-in-from-bottom-full duration-300 z-10">
-                        <div className="flex justify-between items-center mb-4">
-                           <h4 className="font-bold text-sm">Select On-Duty Doctor</h4>
-                           <button onClick={() => setIsAssigning(null)} className="material-symbols-outlined text-slate-400">close</button>
+                  {/* Drawer Footer / Assignment */}
+                  <div className="p-8 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/80 shrink-0">
+                    <button 
+                      onClick={() => setIsAssigning(selectedCase.vapiCallId)}
+                      className="w-full bg-primary text-white font-bold py-4 rounded-2xl hover:bg-primary/90 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-primary/20 flex items-center justify-center gap-2"
+                    >
+                      <span className="material-symbols-outlined">person_add</span>
+                      {selectedCase.assignedDoctor ? `Assigned to ${selectedCase.assignedDoctor.split(' ').pop()}` : 'Assign to On-Duty Physician'}
+                    </button>
+
+                    {isAssigning === selectedCase.vapiCallId && (
+                      <div className="absolute inset-x-0 bottom-0 p-8 bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 animate-in slide-in-from-bottom-full duration-300 z-[60] shadow-2xl">
+                        <div className="flex justify-between items-center mb-6">
+                           <div>
+                              <h4 className="font-bold text-lg leading-none">Select Medical Staff</h4>
+                              <p className="text-xs text-slate-500 mt-1 font-medium">Assign patient to current shift coverage.</p>
+                           </div>
+                           <button onClick={() => setIsAssigning(null)} className="size-8 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center transition-colors">
+                              <span className="material-symbols-outlined text-slate-400">close</span>
+                           </button>
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-2 gap-3">
                            {DOCTORS.map(doc => (
                              <button 
                                 key={doc.id}
                                 onClick={() => assignDoctor(selectedCase.vapiCallId, doc.name)}
-                                className="p-3 border border-slate-100 dark:border-slate-800 rounded-xl hover:border-primary hover:text-primary transition-all text-xs font-bold text-left flex items-center gap-2"
+                                className="p-4 border border-slate-100 dark:border-slate-800 rounded-2xl hover:border-primary hover:text-primary hover:bg-primary/5 transition-all text-sm font-bold text-left flex items-center gap-3 group"
                              >
-                                <div className={`size-6 rounded-full ${doc.color} flex items-center justify-center text-[10px]`}>{doc.name[4]}</div>
-                                {doc.name}
+                                <div className={`size-8 rounded-full ${doc.color} flex items-center justify-center text-xs group-hover:scale-110 transition-transform`}>{doc.name[4]}</div>
+                                <div>
+                                   <p className="leading-none">{doc.name}</p>
+                                   <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-tighter">{doc.specialty}</p>
+                                </div>
                              </button>
                            ))}
                         </div>
-                     </div>
-                   )}
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="flex-1 flex items-center justify-center p-12 text-center">
+                   <div className="size-16 border-4 border-primary/30 border-t-primary rounded-full animate-spin"></div>
                 </div>
-              </div>
-            ) : (
-              <div className="bg-white dark:bg-slate-900 rounded-xl border border-dashed border-slate-300 dark:border-slate-800 flex flex-col items-center justify-center text-center p-12 h-[700px]">
-                 <div className="size-20 bg-slate-50 dark:bg-slate-800 rounded-full flex items-center justify-center mb-6">
-                    <span className="material-symbols-outlined text-4xl text-slate-300">manage_search</span>
-                 </div>
-                 <h4 className="text-lg font-bold text-slate-700 dark:text-slate-200">No Case Selected</h4>
-                 <p className="text-sm text-slate-500 max-w-[240px] mt-2 leading-relaxed">
-                    Select a patient interaction from the queue to review clinical summaries, transcripts, and AI analysis.
-                 </p>
-              </div>
-            )}
-          </div>
-        </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </DashboardLayout>
+  );
+}
       </div>
     </DashboardLayout>
   );
