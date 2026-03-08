@@ -23,14 +23,17 @@ export async function POST(req: Request) {
       - Full Transcript: ${transcript}
 
       Format your response as a JSON object with keys "carePlan" and "secondOpinion".
-      Do not include any markdown formatting like \`\`\`json in your response, just the raw JSON string.
-    \`;
+      Do not include any markdown formatting like triple backticks in your response, just the raw JSON string.
+    `;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
     const text = response.text();
     
-    return NextResponse.json(JSON.parse(text));
+    // Clean potential markdown if the model ignored the instruction
+    const cleanJson = text.replace(/```json|```/g, "").trim();
+    
+    return NextResponse.json(JSON.parse(cleanJson));
   } catch (error: any) {
     console.error("AI Analysis Error:", error);
     return NextResponse.json({ error: "Failed to generate AI insights", details: error.message }, { status: 500 });
