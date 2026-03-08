@@ -32,7 +32,7 @@ export default function SignUpPage() {
         lastName
       } as any);
 
-      await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
+      await (signUp as any).prepareEmailAddressVerification({ strategy: "email_code" });
       setVerifying(true);
     } catch (err: any) {
       setError(err.errors?.[0]?.message || "An error occurred during sign up.");
