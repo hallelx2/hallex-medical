@@ -14,20 +14,23 @@ export default function SignInPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const signInWithGoogle = () => {
+  const signInWithGoogle = async () => {
     if (!isLoaded || !signIn) {
-      console.error("Clerk not loaded yet");
+      console.error("Clerk is not loaded yet.");
       return;
     }
-    console.log("Initiating Google Sign-In redirect...");
+    
+    console.log("Attempting Google OAuth Redirect...");
     try {
-      (signIn as any).authenticateWithRedirect({
+      await (signIn as any).authenticateWithRedirect({
         strategy: "oauth_google",
         redirectUrl: "/sign-up/sso-callback",
         redirectUrlComplete: "/",
       });
-    } catch (err) {
-      console.error("OAuth Error:", err);
+      console.log("Redirect triggered successfully.");
+    } catch (err: any) {
+      console.error("Critical OAuth Error:", err);
+      setError(err.errors?.[0]?.message || "Failed to initiate Google sign-in.");
     }
   };
 
