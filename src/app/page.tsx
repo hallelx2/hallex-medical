@@ -369,7 +369,3 @@ export default function OverviewPage() {
     </DashboardLayout>
   );
 }
-      </div>
-    </DashboardLayout>
-  );
-}
