@@ -1,14 +1,12 @@
 "use client";
 
-import { ClerkProvider } from "@clerk/nextjs";
 import * as Clerk from "@clerk/elements/common";
 import * as SignIn from "@clerk/elements/sign-in";
 import Link from "next/link";
 
 export default function SignInPage() {
   return (
-    <ClerkProvider>
-      <div className="flex min-h-screen bg-white font-jakarta">
+    <div className="flex min-h-screen bg-white font-jakarta">
         {/* Left Side: Auth Form built with Clerk Elements */}
         <div className="w-full lg:w-1/2 flex flex-col items-center justify-center p-8 lg:p-16">
           <div className="w-full max-w-md">
