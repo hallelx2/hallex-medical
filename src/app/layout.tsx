@@ -34,6 +34,9 @@ export default function RootLayout({
       <body className={`${lexend.variable} ${jakarta.variable} font-display antialiased`}>
         <ClerkProvider
           appearance={{
+            layout: {
+              unsafe_disableDevelopmentModeWarnings: true,
+            },
             elements: {
               footer: "hidden",
             },
