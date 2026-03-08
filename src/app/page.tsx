@@ -1,71 +1,50 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import useSWR from "swr";
 import { useVapi } from "@/hooks/useVapi";
 import DashboardLayout from "@/components/DashboardLayout";
 
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
+
 type CallReport = {
-  id: string;
+  vapiCallId: string;
   timestamp: string;
   customerNumber: string;
-  summary: string;
-  transcript: string;
-  analysis: any;
-  recordingUrl?: string;
-  status: "pending" | "assigned";
+  doctorSummary: string | null;
+  chiefComplaint: string | null;
+  status: "pending" | "assigned" | "completed";
   assignedDoctor: string | null;
-  priority?: "High" | "Medium" | "Low";
+  priority: "High" | "Medium" | "Low";
+  redFlagsPresent: boolean;
 };
 
 const DOCTORS = [
-  {
-    id: "1",
-    name: "Dr. Michael Chen",
-    specialty: "Cardiology",
-    status: "Active",
-    color: "bg-primary/10",
-    icon: "person",
-  },
-  {
-    id: "2",
-    name: "Dr. Elena Rodriguez",
-    specialty: "ER Lead",
-    status: "Active",
-    color: "bg-blue-100 dark:bg-blue-900/40",
-    icon: "medical_services",
-  },
-  {
-    id: "3",
-    name: "Dr. James Wilson",
-    specialty: "Neurology",
-    status: "In Call",
-    color: "bg-purple-100 dark:bg-purple-900/40",
-    icon: "neurology",
-  },
-  {
-    id: "4",
-    name: "Dr. Sarah Patel",
-    specialty: "Pediatrics",
-    status: "Active",
-    color: "bg-indigo-100 dark:bg-indigo-900/40",
-    icon: "pediatrics",
-  },
+  { id: "1", name: "Dr. Michael Chen", specialty: "Cardiology", status: "Active", color: "bg-primary/10", icon: "person" },
+  { id: "2", name: "Dr. Elena Rodriguez", specialty: "ER Lead", status: "Active", color: "bg-blue-100 dark:bg-blue-900/40", icon: "medical_services" },
+  { id: "3", name: "Dr. James Wilson", specialty: "Neurology", status: "In Call", color: "bg-purple-100 dark:bg-purple-900/40", icon: "neurology" },
+  { id: "4", name: "Dr. Sarah Patel", specialty: "Pediatrics", status: "Active", color: "bg-indigo-100 dark:bg-indigo-900/40", icon: "pediatrics" },
 ];
 
 export default function OverviewPage() {
-  const [calls, setCalls] = useState<CallReport[]>([]);
-  const [loading, setLoading] = useState(false);
   const [isAssigning, setIsAssigning] = useState<string | null>(null);
+  
+  // SWR: Auto-refresh every 5 seconds + revalidate on window focus
+  const { data: calls = [], mutate, isLoading: isTableLoading } = useSWR<CallReport[]>(
+    "/api/vapi/webhook",
+    fetcher,
+    { refreshInterval: 5000, revalidateOnFocus: true }
+  );
 
-  const {
-    startCall,
-    endCall,
-    messages,
-    isSessionActive,
-    volumeLevel,
+  const { 
+    startCall, 
+    endCall, 
+    messages, 
+    isSessionActive, 
+    volumeLevel, 
     isSpeaking,
     isLoading: isVapiLoading,
-    error: vapiError,
+    error: vapiError
   } = useVapi({
     publicKey: process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY || "",
     assistantId: "64414234-62a2-4f9b-95d5-5dd4a50bb51e",
@@ -79,33 +58,6 @@ export default function OverviewPage() {
     }
   }, [messages]);
 
-  const fetchCalls = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/vapi/webhook");
-      if (res.ok) {
-        const data = await res.json();
-        const enhancedData = data.map((c: any) => ({
-          ...c,
-          priority:
-            c.priority ||
-            ["High", "Medium", "Low"][Math.floor(Math.random() * 3)],
-        }));
-        setCalls(enhancedData.reverse());
-      }
-    } catch (err) {
-      console.error("Failed to fetch calls:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchCalls();
-    const interval = setInterval(fetchCalls, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
   const assignDoctor = async (callId: string, doctorName: string) => {
     try {
       const res = await fetch("/api/vapi/webhook", {
@@ -114,13 +66,7 @@ export default function OverviewPage() {
         body: JSON.stringify({ id: callId, assignedDoctor: doctorName }),
       });
       if (res.ok) {
-        setCalls((prev) =>
-          prev.map((c) =>
-            c.id === callId
-              ? { ...c, status: "assigned", assignedDoctor: doctorName }
-              : c,
-          ),
-        );
+        mutate(); // Instant local cache update
         setIsAssigning(null);
       }
     } catch (err) {
@@ -135,7 +81,7 @@ export default function OverviewPage() {
       <div className="p-8">
         {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow group">
             <div className="flex justify-between items-start">
               <div>
                 <p className="text-slate-500 text-sm font-semibold uppercase tracking-tight">
@@ -152,7 +98,7 @@ export default function OverviewPage() {
                 </p>
               </div>
               <div
-                className={`size-12 rounded-lg flex items-center justify-center transition-colors ${isSessionActive ? "bg-emerald-500 text-white animate-pulse" : "bg-primary/10 text-primary"}`}
+                className={`size-12 rounded-lg flex items-center justify-center transition-all duration-500 ${isSessionActive ? "bg-emerald-500 text-white animate-pulse scale-110 shadow-lg shadow-emerald-500/20" : "bg-primary/10 text-primary group-hover:bg-primary/20"}`}
               >
                 <span className="material-symbols-outlined">
                   {isSessionActive ? "graphic_eq" : "call"}
@@ -160,7 +106,7 @@ export default function OverviewPage() {
               </div>
             </div>
           </div>
-          <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow group">
             <div className="flex justify-between items-start">
               <div>
                 <p className="text-slate-500 text-sm font-semibold uppercase tracking-tight">
@@ -181,7 +127,7 @@ export default function OverviewPage() {
                 </p>
               </div>
               <div
-                className={`size-12 rounded-lg flex items-center justify-center ${pendingCount > 0 ? "bg-red-500/10 text-red-500" : "bg-slate-100 text-slate-400"}`}
+                className={`size-12 rounded-lg flex items-center justify-center transition-all ${pendingCount > 0 ? "bg-red-500/10 text-red-500 animate-bounce" : "bg-slate-100 text-slate-400"}`}
               >
                 <span className="material-symbols-outlined">
                   assignment_late
@@ -189,7 +135,7 @@ export default function OverviewPage() {
               </div>
             </div>
           </div>
-          <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow group">
             <div className="flex justify-between items-start">
               <div>
                 <p className="text-slate-500 text-sm font-semibold uppercase tracking-tight">
@@ -203,7 +149,7 @@ export default function OverviewPage() {
                   All departments active
                 </p>
               </div>
-              <div className="size-12 bg-emerald-500/10 rounded-lg flex items-center justify-center text-emerald-500">
+              <div className="size-12 bg-emerald-500/10 rounded-lg flex items-center justify-center text-emerald-500 group-hover:rotate-12 transition-transform">
                 <span className="material-symbols-outlined">medication</span>
               </div>
             </div>
@@ -221,26 +167,27 @@ export default function OverviewPage() {
                   </span>
                   Patient Triage History
                 </h3>
-                <button
-                  onClick={fetchCalls}
-                  className="flex items-center gap-2 text-primary text-sm font-bold hover:bg-primary/5 px-3 py-1.5 rounded-lg transition-colors"
-                >
-                  <span
-                    className={`material-symbols-outlined text-sm ${loading ? "animate-spin" : ""}`}
+                <div className="flex items-center gap-3">
+                   {isTableLoading && (
+                     <span className="size-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></span>
+                   )}
+                   <button
+                    onClick={() => mutate()}
+                    className="flex items-center gap-2 text-primary text-sm font-bold hover:bg-primary/5 px-3 py-1.5 rounded-lg transition-colors"
                   >
-                    refresh
-                  </span>
-                  Refresh Queue
-                </button>
+                    <span className="material-symbols-outlined text-sm">refresh</span>
+                    Refresh
+                  </button>
+                </div>
               </div>
               <div className="overflow-x-auto flex-1">
-                <table className="w-full text-left">
+                <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 text-[10px] uppercase font-bold tracking-[0.1em]">
                       <th className="px-6 py-4">Patient / Call ID</th>
-                      <th className="px-6 py-4">Timestamp</th>
+                      <th className="px-6 py-4">Clinical Status</th>
                       <th className="px-6 py-4">AI Priority</th>
-                      <th className="px-6 py-4">Assignment</th>
+                      <th className="px-6 py-4">Assigned To</th>
                       <th className="px-6 py-4 text-right">Action</th>
                     </tr>
                   </thead>
@@ -262,12 +209,12 @@ export default function OverviewPage() {
                     ) : (
                       calls.map((call) => (
                         <tr
-                          key={call.id}
-                          className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors group"
+                          key={call.vapiCallId}
+                          className={`hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors group ${call.status === 'pending' ? 'bg-blue-50/30 dark:bg-blue-900/5' : ''}`}
                         >
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
-                              <div className="size-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center font-bold text-xs uppercase text-slate-600 dark:text-slate-300">
+                              <div className={`size-8 rounded-full flex items-center justify-center font-bold text-xs uppercase ${call.redFlagsPresent ? 'bg-red-500 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>
                                 {call.customerNumber.slice(-2)}
                               </div>
                               <div>
@@ -275,16 +222,20 @@ export default function OverviewPage() {
                                   {call.customerNumber}
                                 </span>
                                 <span className="text-[10px] text-slate-400 font-mono tracking-tighter">
-                                  ID: {call.id.slice(-8)}
+                                  ID: {call.vapiCallId.slice(-8)}
                                 </span>
                               </div>
                             </div>
                           </td>
-                          <td className="px-6 py-4 text-xs text-slate-500 font-medium">
-                            {new Date(call.timestamp).toLocaleTimeString([], {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
+                          <td className="px-6 py-4">
+                             {call.redFlagsPresent && (
+                               <span className="flex items-center gap-1 text-red-500 text-[10px] font-bold uppercase mb-1">
+                                 <span className="material-symbols-outlined text-[12px]">warning</span> Red Flags Detected
+                               </span>
+                             )}
+                             <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-1 max-w-[200px]">
+                                {call.doctorSummary || call.chiefComplaint || 'Awaiting processing...'}
+                             </p>
                           </td>
                           <td className="px-6 py-4">
                             <span
@@ -308,19 +259,18 @@ export default function OverviewPage() {
                                 {call.assignedDoctor.split(" ").pop()}
                               </div>
                             ) : (
-                              <span className="text-[10px] font-bold text-slate-400 italic uppercase">
-                                Unassigned
-                              </span>
+                              <span className="text-[10px] font-bold text-slate-400 italic uppercase animate-pulse">Pending Auto-Assignment...</span>
                             )}
                           </td>
                           <td className="px-6 py-4 text-right">
-                            {isAssigning === call.id ? (
+                            {isAssigning === call.vapiCallId ? (
                               <div className="flex gap-1 justify-end animate-in fade-in slide-in-from-right-2 duration-300">
                                 {DOCTORS.slice(0, 2).map((doc) => (
                                   <button
                                     key={doc.id}
+                                    type="button"
                                     onClick={() =>
-                                      assignDoctor(call.id, doc.name)
+                                      assignDoctor(call.vapiCallId, doc.name)
                                     }
                                     className="bg-primary/10 text-primary hover:bg-primary hover:text-white px-2 py-1 rounded-md text-[10px] font-bold transition-all"
                                   >
@@ -328,6 +278,7 @@ export default function OverviewPage() {
                                   </button>
                                 ))}
                                 <button
+                                  type="button"
                                   onClick={() => setIsAssigning(null)}
                                   className="text-slate-400 p-1"
                                 >
@@ -338,15 +289,15 @@ export default function OverviewPage() {
                               </div>
                             ) : (
                               <button
-                                onClick={() => setIsAssigning(call.id)}
-                                disabled={!!call.assignedDoctor}
+                                type="button"
+                                onClick={() => setIsAssigning(call.vapiCallId)}
                                 className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm ${
-                                  call.assignedDoctor
-                                    ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                                    : "bg-primary text-white hover:bg-primary/90 hover:scale-105 active:scale-95"
+                                  call.status === 'assigned'
+                                    ? "bg-slate-100 text-slate-400 hover:bg-slate-200"
+                                    : "bg-primary text-white hover:bg-primary/90 hover:scale-105 active:scale-95 shadow-primary/20"
                                 }`}
                               >
-                                {call.assignedDoctor ? "Assigned" : "Assign"}
+                                {call.status === 'assigned' ? "Reassign" : "Assign"}
                               </button>
                             )}
                           </td>
@@ -363,10 +314,10 @@ export default function OverviewPage() {
               <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
                 <h3 className="font-bold text-lg">Available Medical Staff</h3>
                 <div className="flex gap-2">
-                  <button className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                  <button type="button" className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
                     All Specialties
                   </button>
-                  <button className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                  <button type="button" className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
                     ER Only
                   </button>
                 </div>
@@ -408,7 +359,6 @@ export default function OverviewPage() {
 
           {/* Right Column: Dialer and Live Feed */}
           <div className="space-y-6">
-            {/* Dialer / Call Status Card */}
             <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden group">
               <div
                 className={`p-6 text-white transition-colors duration-500 ${isSessionActive ? "bg-emerald-500" : isVapiLoading ? "bg-blue-400" : "bg-primary"}`}
@@ -453,7 +403,7 @@ export default function OverviewPage() {
                           Active Triage Session
                         </p>
                         <p className="text-xs text-slate-500 font-medium uppercase mt-1 tracking-widest">
-                          Call ID: WEB_TRIAGE_882
+                          Patient: {process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID ? "St. Mary AI Assistant" : "Digital Visitor"}
                         </p>
                       </div>
                     </div>
@@ -471,6 +421,7 @@ export default function OverviewPage() {
                     </div>
 
                     <button
+                      type="button"
                       onClick={endCall}
                       className="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-red-500/20"
                     >
@@ -484,16 +435,17 @@ export default function OverviewPage() {
                   <>
                     <div className="bg-slate-100 dark:bg-slate-800 rounded-xl p-4 mb-6 text-center border border-slate-200 dark:border-slate-700">
                       <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1">
-                        Target Patient ID
+                        Quick Dial Template
                       </div>
                       <div className="text-2xl font-bold tracking-[0.2em] text-primary">
-                        WEB-VISITOR
+                        +1 (HALLEX)
                       </div>
                     </div>
                     <div className="grid grid-cols-3 gap-3 mb-6">
                       {[1, 2, 3, 4, 5, 6, 7, 8, 9, "*", 0, "#"].map((k) => (
                         <button
                           key={k}
+                          type="button"
                           className="aspect-square flex items-center justify-center text-xl font-bold bg-slate-50 dark:bg-slate-800 rounded-lg hover:bg-primary/10 hover:text-primary transition-all active:scale-90 border border-slate-100 dark:border-slate-800"
                         >
                           {k}
@@ -501,6 +453,7 @@ export default function OverviewPage() {
                       ))}
                     </div>
                     <button
+                      type="button"
                       onClick={startCall}
                       disabled={isVapiLoading}
                       className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-300 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-emerald-500/20"
