@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { triageCalls, patients } from "@/db/schema";
 import { eq, count } from "drizzle-orm";
+import { writeAudit } from "@/lib/audit";
 
 export const dynamic = 'force-dynamic';
 
@@ -32,7 +33,6 @@ async function getOrCreatePatient(phoneNumber: string) {
 }
 
 async function autoAssignDoctor() {
-  const dbInstance = db;
   const results = await db
     .select({
       doctor: triageCalls.assignedDoctor,
@@ -63,12 +63,23 @@ async function autoAssignDoctor() {
 }
 
 export async function POST(req: Request) {
+  const requestId = req.headers.get("x-vapi-request-id") || crypto.randomUUID();
+
   try {
     const body = await req.json();
     const message = body.message || body;
     const vapiCallId = message.call?.id || message.callId;
 
     if (!vapiCallId) return NextResponse.json({ error: "No Call ID" });
+
+    // A) Audit Webhook Received
+    await writeAudit({
+      actorType: "ASSISTANT",
+      callId: vapiCallId,
+      eventType: "VAPI_WEBHOOK_RECEIVED",
+      metadata: { messageType: message.type, assistantId: message.call?.assistantId },
+      requestId,
+    });
 
     // 1. Handle Live Session Events
     if (message.type === 'call.started') {
@@ -87,6 +98,18 @@ export async function POST(req: Request) {
           target: triageCalls.vapiCallId,
           set: { callStartedAt: new Date() }
         });
+
+      await writeAudit({
+        actorType: "SYSTEM",
+        callId: vapiCallId,
+        patientId,
+        eventType: "CASE_STATE_CHANGED",
+        previousState: "NULL",
+        newState: "pending",
+        metadata: { phoneNumber },
+        requestId,
+      });
+
       return NextResponse.json({ success: true });
     }
 
@@ -94,6 +117,15 @@ export async function POST(req: Request) {
       await db.update(triageCalls)
         .set({ callEndedAt: new Date() })
         .where(eq(triageCalls.vapiCallId, vapiCallId));
+      
+      await writeAudit({
+        actorType: "ASSISTANT",
+        callId: vapiCallId,
+        eventType: "CALL_ENDED",
+        metadata: { endedAt: new Date().toISOString() },
+        requestId,
+      });
+
       return NextResponse.json({ success: true });
     }
 
@@ -136,6 +168,32 @@ export async function POST(req: Request) {
           set: callData,
         });
 
+      // B) Audit Clinical Report Persisted
+      await writeAudit({
+        actorType: "ASSISTANT",
+        callId: vapiCallId,
+        patientId,
+        eventType: "CLINICAL_REPORT_PERSISTED",
+        metadata: { 
+          triageGrade: structuredData.triageGrade, 
+          symptomCategory: structuredData.symptomCategory,
+          redFlagsPresent: structuredData.redFlagsPresent 
+        },
+        requestId,
+      });
+
+      // C) Audit State Transition (Auto-assigned)
+      await writeAudit({
+        actorType: "SYSTEM",
+        callId: vapiCallId,
+        patientId,
+        eventType: "CASE_STATE_CHANGED",
+        previousState: "pending",
+        newState: "assigned",
+        metadata: { assignedDoctor, reason: "AUTO_ASSIGNMENT" },
+        requestId,
+      });
+
       return NextResponse.json({ success: true, assignedTo: assignedDoctor });
     }
 
@@ -158,12 +216,33 @@ export async function GET() {
 }
 
 export async function PATCH(req: Request) {
+  const requestId = crypto.randomUUID();
   try {
     const { id, assignedDoctor, status } = await req.json();
+    
+    // Get previous state
+    const current = await db.query.triageCalls.findFirst({
+      where: eq(triageCalls.vapiCallId, id)
+    });
+
     const updated = await db.update(triageCalls)
       .set({ assignedDoctor, status: (status as any) || "assigned" })
       .where(eq(triageCalls.vapiCallId, id))
       .returning();
+
+    if (updated.length > 0) {
+      await writeAudit({
+        actorType: "USER",
+        callId: id,
+        patientId: updated[0].patientId,
+        eventType: "CASE_STATE_CHANGED",
+        previousState: current?.status,
+        newState: updated[0].status,
+        metadata: { assignedDoctor, manuallyUpdated: true },
+        requestId,
+      });
+    }
+
     return NextResponse.json(updated[0] || { error: "Not found" });
   } catch (error: any) {
     return NextResponse.json({ error: "Failed", details: error.message }, { status: 500 });

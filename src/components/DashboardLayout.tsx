@@ -18,6 +18,7 @@ export default function DashboardLayout({
     { name: "Call Logs", href: "/logs", icon: "call" },
     { name: "Patient Cases", href: "/cases", icon: "clinical_notes" },
     { name: "Doctor Schedule", href: "/schedule", icon: "calendar_month" },
+    { name: "Audit Logs", href: "/audit", icon: "assignment" },
     { name: "Settings", href: "/settings", icon: "settings" },
   ];
 

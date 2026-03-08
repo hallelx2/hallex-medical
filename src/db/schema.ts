@@ -70,3 +70,18 @@ export const triageCalls = pgTable("triage_calls", {
   status: callStatusEnum("status").default("pending").notNull(),
   assignedDoctor: text("assigned_doctor"),
 });
+
+export const auditLogs = pgTable("audit_logs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  timestamp: timestamp("ts").defaultNow().notNull(),
+  actorType: text("actor_type", { enum: ["SYSTEM", "USER", "ASSISTANT"] }).notNull(),
+  actorId: text("actor_id"), // Clerk user ID or system component name
+  patientId: uuid("patient_id").references(() => patients.id),
+  callId: text("call_id"),
+  eventType: text("event_type").notNull(),
+  previousState: text("previous_state"),
+  newState: text("new_state"),
+  metadata: jsonb("metadata").default({}),
+  requestId: text("request_id").notNull(),
+  idempotencyKey: text("idempotency_key").unique(),
+});

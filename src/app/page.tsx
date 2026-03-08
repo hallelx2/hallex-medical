@@ -47,6 +47,7 @@ export default function OverviewPage() {
   // AI State
   const [aiInsights, setAiInsights] = useState<{ carePlan: string; secondOpinion: string; icd10Code?: string; billingDescription?: string } | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
+  const [isCallingOutbound, setIsCallingOutbound] = useState(false);
   
   // Chat State
   const [chatMessage, setChatMessage] = useState("");
@@ -160,6 +161,32 @@ export default function OverviewPage() {
     setChatMessage("");
     setActiveTab("analysis");
   }, [selectedCaseId]);
+
+  const triggerOutboundCall = async () => {
+    if (!selectedCase) return;
+    setIsCallingOutbound(true);
+    try {
+      const res = await fetch("/api/call", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phoneNumber: selectedCase.customerNumber,
+          patientId: selectedCase.patientId,
+          caseId: selectedCase.vapiCallId
+        }),
+      });
+      if (res.ok) {
+        alert("Outbound call successfully initiated.");
+      } else {
+        const error = await res.json();
+        alert(`Failed to initiate call: ${error.details || 'Unknown error'}`);
+      }
+    } catch (err) {
+      console.error("Outbound Call Error:", err);
+    } finally {
+      setIsCallingOutbound(false);
+    }
+  };
 
   const assignDoctor = async (callId: string, doctorName: string) => {
     try {
@@ -403,8 +430,15 @@ export default function OverviewPage() {
                                    <span className="material-symbols-outlined text-sm">auto_awesome</span> Gemini 2.5 - Patient Care Plan
                                 </h5>
                                 <p className="text-sm text-slate-300 leading-relaxed font-medium">{aiInsights.carePlan}</p>
-                                <button className="mt-6 w-full py-3 bg-white/10 hover:bg-white/20 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2">
-                                   <span className="material-symbols-outlined text-sm">send</span> Dispatch Care Plan to Patient
+                                <button 
+                                  onClick={triggerOutboundCall}
+                                  disabled={isCallingOutbound}
+                                  className="mt-6 w-full py-3 bg-white/10 hover:bg-white/20 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                                >
+                                   <span className={`material-symbols-outlined text-sm ${isCallingOutbound ? 'animate-spin' : ''}`}>
+                                      {isCallingOutbound ? 'refresh' : 'call'}
+                                   </span> 
+                                   {isCallingOutbound ? 'Initiating Vapi Outbound...' : 'Dispatch Outbound Care Coordinator'}
                                 </button>
                              </div>
                           </div>
