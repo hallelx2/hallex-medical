@@ -50,7 +50,7 @@ export default function SignUpPage() {
         password,
         firstName,
         lastName
-      });
+      } as any);
 
       await (signUp as any).prepareEmailAddressVerification({ strategy: "email_code" });
       setVerifying(true);
