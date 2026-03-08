@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { triageCalls } from "@/db/schema";
+import { triageCalls, patients } from "@/db/schema";
 import { eq, count } from "drizzle-orm";
 
 export const dynamic = 'force-dynamic';
@@ -12,7 +12,27 @@ const DOCTORS = [
   "Dr. Sarah Patel"
 ];
 
+async function getOrCreatePatient(phoneNumber: string) {
+  const existing = await db.query.patients.findFirst({
+    where: eq(patients.phoneNumber, phoneNumber),
+  });
+
+  if (existing) {
+    await db.update(patients)
+      .set({ lastInteraction: new Date() })
+      .where(eq(patients.id, existing.id));
+    return existing.id;
+  }
+
+  const result = await db.insert(patients)
+    .values({ phoneNumber, lastInteraction: new Date() })
+    .returning({ id: patients.id });
+  
+  return result[0].id;
+}
+
 async function autoAssignDoctor() {
+  const dbInstance = db;
   const results = await db
     .select({
       doctor: triageCalls.assignedDoctor,
@@ -52,10 +72,14 @@ export async function POST(req: Request) {
 
     // 1. Handle Live Session Events
     if (message.type === 'call.started') {
+      const phoneNumber = message.call?.customer?.number || 'Web Call';
+      const patientId = await getOrCreatePatient(phoneNumber);
+
       await db.insert(triageCalls)
         .values({
           vapiCallId,
-          customerNumber: message.call?.customer?.number || 'Web Call',
+          patientId,
+          customerNumber: phoneNumber,
           callStartedAt: new Date(),
           status: 'pending'
         })
@@ -77,13 +101,17 @@ export async function POST(req: Request) {
     if (message.type === "end-of-call-report") {
       const { call, analysis, artifact, transcript } = message;
       const structuredData = analysis?.structuredData || {};
+      
+      const phoneNumber = call.customer?.number || "Web Call";
+      const patientId = await getOrCreatePatient(phoneNumber);
 
       const assignedDoctor = await autoAssignDoctor();
 
       const callData = {
         vapiCallId: call.id,
+        patientId,
         timestamp: new Date(call.startedAt || new Date()),
-        customerNumber: call.customer?.number || "Web Call",
+        customerNumber: phoneNumber,
         
         chiefComplaint: structuredData.chiefComplaint,
         doctorSummary: structuredData.doctorSummary,

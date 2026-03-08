@@ -10,6 +10,17 @@ export const triageGradeEnum = pgEnum("triage_grade", [
 
 export const callStatusEnum = pgEnum("call_status", ["pending", "assigned", "completed"]);
 
+export const patients = pgTable("patients", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  phoneNumber: text("phone_number").unique().notNull(),
+  fullName: text("full_name"),
+  dateOfBirth: timestamp("date_of_birth"),
+  gender: text("gender"),
+  medicalHistory: text("medical_history"), // Stored as summary
+  lastInteraction: timestamp("last_interaction").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const doctors = pgTable("doctors", {
   id: uuid("id").primaryKey().defaultRandom(),
   clerkId: text("clerk_id").unique().notNull(),
@@ -24,12 +35,13 @@ export const doctors = pgTable("doctors", {
 export const triageCalls = pgTable("triage_calls", {
   id: uuid("id").primaryKey().defaultRandom(),
   vapiCallId: text("vapi_call_id").unique().notNull(),
+  patientId: uuid("patient_id").references(() => patients.id),
   timestamp: timestamp("timestamp").defaultNow().notNull(),
   callStartedAt: timestamp("call_started_at"),
   callEndedAt: timestamp("call_ended_at"),
   customerNumber: text("customer_number").notNull(),
   
-  // Clinical Data from Vapi Structured Data extraction
+  // Clinical Data
   chiefComplaint: text("chief_complaint"),
   doctorSummary: text("doctor_summary"),
   recommendedAction: text("recommended_action"),
@@ -38,7 +50,11 @@ export const triageCalls = pgTable("triage_calls", {
   severityScale: integer("severity_scale"),
   redFlagsPresent: boolean("red_flags_present").default(false),
   
-  // Risk Factors (stored as JSON)
+  // Medical Coding (Feature 2)
+  icd10Code: text("icd10_code"),
+  billingDescription: text("billing_description"),
+  
+  // Risk Factors
   riskFactors: jsonb("risk_factors"),
   
   // Transcription & Media

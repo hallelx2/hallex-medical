@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import useSWR from "swr";
 import DashboardLayout from "@/components/DashboardLayout";
 
@@ -22,6 +22,7 @@ type CallReport = {
   triageGrade: string | null;
   severityScale: number | null;
   riskFactors: any;
+  patientId: string | null;
 };
 
 const DOCTORS = [
@@ -33,9 +34,17 @@ const DOCTORS = [
 
 export default function OverviewPage() {
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"analysis" | "chat" | "transcript">("analysis");
   const [isAssigning, setIsAssigning] = useState<string | null>(null);
-  const [aiInsights, setAiInsights] = useState<{ carePlan: string; secondOpinion: string } | null>(null);
+  
+  // AI State
+  const [aiInsights, setAiInsights] = useState<{ carePlan: string; secondOpinion: string; icd10Code?: string; billingDescription?: string } | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
+  
+  // Chat State
+  const [chatMessage, setChatMessage] = useState("");
+  const [chatHistory, setChatHistory] = useState<{ role: 'user' | 'model'; text: string }[]>([]);
+  const [isChatLoading, setIsChatLoading] = useState(false);
   
   const { data: calls = [], mutate, isLoading: isTableLoading } = useSWR<CallReport[]>(
     "/api/vapi/webhook",
@@ -70,9 +79,41 @@ export default function OverviewPage() {
     }
   };
 
-  // Reset AI insights when case changes
-  React.useEffect(() => {
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!chatMessage.trim() || !selectedCase?.transcript) return;
+    
+    const userMsg = chatMessage;
+    setChatMessage("");
+    setChatHistory(prev => [...prev, { role: 'user', text: userMsg }]);
+    setIsChatLoading(true);
+
+    try {
+      const res = await fetch("/api/ai/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          transcript: selectedCase.transcript,
+          message: userMsg,
+          history: chatHistory.map(h => ({ role: h.role, parts: [{ text: h.text }] }))
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setChatHistory(prev => [...prev, { role: 'model', text: data.text }]);
+      }
+    } catch (err) {
+      console.error("Chat Error:", err);
+    } finally {
+      setIsChatLoading(false);
+    }
+  };
+
+  useEffect(() => {
     setAiInsights(null);
+    setChatHistory([]);
+    setChatMessage("");
+    setActiveTab("analysis");
   }, [selectedCaseId]);
 
   const assignDoctor = async (callId: string, doctorName: string) => {
@@ -96,7 +137,7 @@ export default function OverviewPage() {
 
   return (
     <DashboardLayout>
-      <div className="p-8 relative min-h-full">
+      <div className="p-8 relative min-h-full font-jakarta">
         {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
@@ -105,7 +146,7 @@ export default function OverviewPage() {
                 <p className="text-slate-500 text-sm font-semibold uppercase tracking-tight">Total Interactions</p>
                 <h3 className="text-3xl font-bold mt-1">{String(calls.length).padStart(2, '0')}</h3>
                 <p className="text-slate-400 text-xs font-bold mt-2 flex items-center gap-1">
-                  <span className="material-symbols-outlined text-sm">history</span> All agent calls
+                  <span className="material-symbols-outlined text-sm font-bold">history</span> All agent calls
                 </p>
               </div>
               <div className="size-12 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
@@ -143,283 +184,256 @@ export default function OverviewPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-8">
-          {/* Triage Queue Table - Now takes full width */}
-          <div className="space-y-6">
-            <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col min-h-[600px]">
-              <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900 sticky top-0 z-[5]">
-                <h3 className="font-bold text-lg flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary">list_alt</span>
-                  Interaction History
-                </h3>
-                <div className="flex items-center gap-3">
-                   {isTableLoading && <span className="size-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></span>}
-                   <button onClick={() => mutate()} className="text-primary text-sm font-bold hover:bg-primary/5 px-3 py-1.5 rounded-lg transition-colors">
-                    <span className="material-symbols-outlined text-sm">refresh</span>
-                  </button>
-                </div>
-              </div>
-              <div className="overflow-x-auto flex-1">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 text-[10px] uppercase font-bold tracking-[0.1em]">
-                      <th className="px-6 py-4">Patient</th>
-                      <th className="px-6 py-4">Clinical Overview</th>
-                      <th className="px-6 py-4">Assignment Status</th>
-                      <th className="px-6 py-4 text-right">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {calls.map((call) => (
-                      <tr
-                        key={call.vapiCallId}
-                        onClick={() => setSelectedCaseId(call.vapiCallId)}
-                        className={`cursor-pointer transition-colors group ${selectedCaseId === call.vapiCallId ? 'bg-primary/5 border-l-4 border-l-primary' : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/20'}`}
-                      >
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className={`size-10 rounded-full flex items-center justify-center font-bold text-sm uppercase ${call.redFlagsPresent ? 'bg-red-500 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}>
-                              {call.customerNumber.slice(-2)}
-                            </div>
-                            <div>
-                              <span className="font-bold text-base block">{call.customerNumber}</span>
-                              <span className="text-[10px] text-slate-400 font-mono tracking-tighter uppercase">{new Date(call.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                           <div className="flex flex-col gap-1.5">
-                              <span className={`w-fit px-2 py-0.5 rounded-full text-[9px] font-bold uppercase border ${
-                                 call.priority === 'High' ? 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400' :
-                                 call.priority === 'Medium' ? 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400' :
-                                 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400'
-                              }`}>
-                                {call.priority} Priority
-                              </span>
-                              <p className="text-sm text-slate-600 dark:text-slate-400 font-medium line-clamp-1 italic">
-                                 {call.chiefComplaint || 'Awaiting clinical data...'}
-                              </p>
-                           </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                             <div className={`size-2 rounded-full ${call.assignedDoctor ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`}></div>
-                             <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
-                                {call.assignedDoctor ? call.assignedDoctor : 'Unassigned'}
-                             </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                           <button className="bg-slate-100 dark:bg-slate-800 hover:bg-primary hover:text-white p-2 rounded-lg transition-all">
-                              <span className="material-symbols-outlined text-xl">visibility</span>
-                           </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+        {/* Full-Width Table */}
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col min-h-[600px]">
+          <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900 sticky top-0 z-[5]">
+            <h3 className="font-bold text-lg flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary">list_alt</span>
+              Interaction History
+            </h3>
+            <button onClick={() => mutate()} className="text-primary text-sm font-bold hover:bg-primary/5 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-2">
+              <span className={`material-symbols-outlined text-sm ${isTableLoading ? 'animate-spin' : ''}`}>refresh</span>
+              Refresh Queue
+            </button>
+          </div>
+          <div className="overflow-x-auto flex-1">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 text-[10px] uppercase font-bold tracking-[0.1em]">
+                  <th className="px-6 py-4">Patient Interaction</th>
+                  <th className="px-6 py-4">Clinical Overview</th>
+                  <th className="px-6 py-4">Assignment Status</th>
+                  <th className="px-6 py-4 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-jakarta">
+                {calls.map((call) => (
+                  <tr
+                    key={call.vapiCallId}
+                    onClick={() => setSelectedCaseId(call.vapiCallId)}
+                    className={`cursor-pointer transition-all group ${selectedCaseId === call.vapiCallId ? 'bg-primary/5 border-l-4 border-l-primary' : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/20'}`}
+                  >
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className={`size-10 rounded-full flex items-center justify-center font-bold text-sm uppercase ${call.redFlagsPresent ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}>
+                          {call.customerNumber.slice(-2)}
+                        </div>
+                        <div>
+                          <span className="font-bold text-base block">{call.customerNumber}</span>
+                          <span className="text-[10px] text-slate-400 font-mono tracking-tighter uppercase">{new Date(call.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                       <div className="flex flex-col gap-1.5">
+                          <span className={`w-fit px-2 py-0.5 rounded-full text-[9px] font-bold uppercase border ${
+                             call.priority === 'High' ? 'bg-red-100 text-red-700 border-red-200' :
+                             call.priority === 'Medium' ? 'bg-amber-100 text-amber-700 border-amber-200' :
+                             'bg-emerald-100 text-emerald-700 border-emerald-200'
+                          }`}>
+                            {call.priority} Priority
+                          </span>
+                          <p className="text-sm text-slate-600 dark:text-slate-400 font-medium line-clamp-1 italic max-w-[300px]">
+                             {call.chiefComplaint || 'Awaiting clinical data...'}
+                          </p>
+                       </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                         <div className={`size-2 rounded-full ${call.assignedDoctor ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`}></div>
+                         <span className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase">
+                            {call.assignedDoctor ? call.assignedDoctor.split(' ').pop() : 'Pending'}
+                         </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                       <button className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-primary group-hover:bg-primary group-hover:text-white p-2 rounded-xl transition-all shadow-sm">
+                          <span className="material-symbols-outlined text-xl">open_in_new</span>
+                       </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
 
-        {/* SIDEBAR SLIDER (DRAWER) */}
+        {/* TABBED SLIDE-OVER DRAWER */}
         {selectedCaseId && (
           <>
-            {/* Backdrop Overlay */}
-            <div 
-              className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-[40] transition-opacity animate-in fade-in duration-300"
-              onClick={() => setSelectedCaseId(null)}
-            />
-            
-            {/* Drawer Panel */}
-            <div className="fixed inset-y-0 right-0 w-full max-w-2xl bg-white dark:bg-slate-900 z-[50] shadow-2xl border-l border-slate-200 dark:border-slate-800 flex flex-col animate-in slide-in-from-right duration-500 ease-in-out">
+            <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-[40] transition-opacity animate-in fade-in duration-300" onClick={() => setSelectedCaseId(null)} />
+            <div className="fixed inset-y-0 right-0 w-full max-w-2xl bg-white dark:bg-slate-900 z-[50] shadow-2xl flex flex-col animate-in slide-in-from-right duration-500 ease-in-out">
               {selectedCase ? (
                 <>
-                  {/* Drawer Header */}
-                  <div className={`p-8 text-white relative shrink-0 ${selectedCase.redFlagsPresent ? 'bg-red-600' : 'bg-primary'}`}>
-                    <button 
-                      onClick={() => setSelectedCaseId(null)}
-                      className="absolute top-6 right-6 size-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all group"
-                    >
-                      <span className="material-symbols-outlined group-hover:rotate-90 transition-transform">close</span>
-                    </button>
-
-                    <div className="flex flex-col gap-4 mt-2">
-                      <div className="flex items-center gap-3">
-                        <div className="size-12 rounded-xl bg-white/20 flex items-center justify-center">
-                          <span className="material-symbols-outlined text-3xl">clinical_notes</span>
+                  <div className={`p-8 text-white shrink-0 ${selectedCase.redFlagsPresent ? 'bg-red-600' : 'bg-primary'}`}>
+                    <div className="flex justify-between items-start mb-6">
+                      <div className="flex items-center gap-4">
+                        <div className="size-14 rounded-2xl bg-white/20 flex items-center justify-center border border-white/30 backdrop-blur-md">
+                          <span className="material-symbols-outlined text-4xl">medical_information</span>
                         </div>
                         <div>
-                          <h3 className="font-bold text-2xl tracking-tight leading-none">
-                            {selectedCase.customerNumber}
-                          </h3>
-                          <p className="text-xs text-white/70 font-bold uppercase tracking-widest mt-1">
-                            Interaction ID: {selectedCase.vapiCallId.slice(-12)}
-                          </p>
+                          <h3 className="font-bold text-3xl tracking-tight leading-none">{selectedCase.customerNumber}</h3>
+                          <p className="text-xs text-white/70 font-bold uppercase tracking-[0.2em] mt-2">EMR-LINKED PATIENT</p>
                         </div>
                       </div>
-                      
-                      <div className="flex flex-wrap gap-2">
-                        <span className="px-3 py-1 bg-white/20 backdrop-blur-md rounded-lg text-[10px] font-bold uppercase tracking-tighter">
-                           Triage: {selectedCase.triageGrade || 'Standard'}
-                        </span>
-                        <span className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-tighter ${selectedCase.redFlagsPresent ? 'bg-white text-red-600' : 'bg-white/20 text-white'}`}>
-                           {selectedCase.redFlagsPresent ? 'Red Flags Detected' : 'No Critical Flags'}
-                        </span>
-                      </div>
+                      <button onClick={() => setSelectedCaseId(null)} className="size-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all">
+                        <span className="material-symbols-outlined">close</span>
+                      </button>
+                    </div>
+                    
+                    {/* Tab Navigation */}
+                    <div className="flex bg-black/10 rounded-xl p-1 mt-4">
+                       {[
+                         { id: 'analysis', label: 'Clinical Analysis', icon: 'psychology' },
+                         { id: 'chat', label: 'Chat with Case', icon: 'forum' },
+                         { id: 'transcript', label: 'Full Transcript', icon: 'notes' }
+                       ].map(tab => (
+                         <button
+                           key={tab.id}
+                           onClick={() => setActiveTab(tab.id as any)}
+                           className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${activeTab === tab.id ? 'bg-white text-slate-900 shadow-lg' : 'text-white/60 hover:text-white hover:bg-white/5'}`}
+                         >
+                           <span className="material-symbols-outlined text-sm">{tab.icon}</span>
+                           {tab.label}
+                         </button>
+                       ))}
                     </div>
                   </div>
 
-                  {/* Drawer Content */}
-                  <div className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
-                    {selectedCase.recordingUrl && (
-                      <section>
-                        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Call Recording</h4>
-                        <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 flex items-center gap-4 border border-slate-100 dark:border-slate-800">
-                           <button className="size-12 rounded-full bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all">
-                              <span className="material-symbols-outlined text-2xl">play_arrow</span>
-                           </button>
-                           <div className="flex-1 space-y-1">
-                              <div className="h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                                 <div className="h-full bg-primary w-1/3"></div>
-                              </div>
-                              <div className="flex justify-between text-[10px] font-bold text-slate-400">
-                                 <span>0:42</span>
-                                 <span>2:15</span>
-                              </div>
-                           </div>
-                           <a href={selectedCase.recordingUrl} target="_blank" rel="noreferrer" className="text-xs font-bold text-primary hover:underline">Download</a>
-                        </div>
-                      </section>
+                  <div className="flex-1 overflow-y-auto p-8 custom-scrollbar bg-slate-50/30 dark:bg-slate-900/30">
+                    {activeTab === 'analysis' && (
+                      <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                        {/* Summary & Billing */}
+                        <section>
+                          <div className="flex justify-between items-center mb-4">
+                             <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Initial AI Summary</h4>
+                             {!aiInsights && (
+                               <button 
+                                 onClick={generateAiInsights}
+                                 disabled={isAiLoading}
+                                 className="text-[10px] font-black text-primary uppercase flex items-center gap-1 hover:underline disabled:opacity-50"
+                               >
+                                  <span className={`material-symbols-outlined text-xs ${isAiLoading ? 'animate-spin' : ''}`}>bolt</span> 
+                                  Run Gemini 2.0 Analysis
+                               </button>
+                             )}
+                          </div>
+                          <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                             <p className="text-base text-slate-700 dark:text-slate-200 leading-relaxed font-medium italic italic">"{selectedCase.doctorSummary || 'Awaiting agent report...'}"</p>
+                          </div>
+                        </section>
+
+                        {aiInsights && (
+                          <div className="space-y-6">
+                             <div className="grid grid-cols-2 gap-4">
+                                <div className="bg-primary/5 p-5 rounded-3xl border border-primary/10">
+                                   <p className="text-[9px] font-bold text-primary uppercase tracking-widest mb-2">Diagnosis Code (ICD-10)</p>
+                                   <p className="text-xl font-black text-slate-900 dark:text-white tracking-tighter">{aiInsights.icd10Code}</p>
+                                   <p className="text-[10px] text-slate-500 mt-1 leading-tight font-medium">{aiInsights.billingDescription}</p>
+                                </div>
+                                <div className="bg-emerald-50 dark:bg-emerald-900/10 p-5 rounded-3xl border border-emerald-100 dark:border-emerald-900/20">
+                                   <p className="text-[9px] font-bold text-emerald-600 uppercase tracking-widest mb-2">Triage Action</p>
+                                   <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 leading-relaxed">{selectedCase.recommendedAction}</p>
+                                </div>
+                             </div>
+
+                             <div className="bg-slate-900 p-6 rounded-3xl text-white shadow-xl border border-slate-800">
+                                <h5 className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                   <span className="material-symbols-outlined text-sm">auto_awesome</span> Gemini 2.0 - Patient Care Plan
+                                </h5>
+                                <p className="text-sm text-slate-300 leading-relaxed font-medium">{aiInsights.carePlan}</p>
+                                <button className="mt-6 w-full py-3 bg-white/10 hover:bg-white/20 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2">
+                                   <span className="material-symbols-outlined text-sm">send</span> Dispatch Care Plan to Patient
+                                </button>
+                             </div>
+                          </div>
+                        )}
+                      </div>
                     )}
 
-                    <section>
-                      <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                         <span className="material-symbols-outlined text-sm text-primary">summarize</span> AI Clinical Analysis
-                      </h4>
-                      <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
-                         <p className="text-base text-slate-700 dark:text-slate-200 leading-relaxed font-medium italic">
-                            "{selectedCase.doctorSummary || 'Awaiting summary generation...'}"
-                         </p>
-                      </div>
-                    </section>
-
-                    {/* Gemini AI Insights Section */}
-                    <section className="pt-4 border-t border-slate-100 dark:border-slate-800">
-                       {!aiInsights ? (
-                         <button 
-                           onClick={generateAiInsights}
-                           disabled={isAiLoading}
-                           className="w-full py-4 border-2 border-dashed border-primary/30 rounded-2xl text-primary font-bold text-sm hover:bg-primary/5 transition-all flex items-center justify-center gap-2 group disabled:opacity-50"
-                         >
-                            <span className={`material-symbols-outlined ${isAiLoading ? 'animate-spin' : 'group-hover:rotate-12'}`}>
-                               {isAiLoading ? 'refresh' : 'temp_preferences_custom'}
-                            </span>
-                            {isAiLoading ? 'Gemini Analyzing...' : 'Generate Care Plan & Second Opinion'}
-                         </button>
-                       ) : (
-                         <div className="space-y-6 animate-in fade-in zoom-in-95 duration-500">
-                            <div className="bg-gradient-to-br from-primary/5 to-blue-500/5 p-6 rounded-2xl border border-primary/10">
-                               <h5 className="text-[10px] font-bold text-primary uppercase tracking-widest mb-3 flex items-center gap-2">
-                                  <span className="material-symbols-outlined text-sm">auto_awesome</span> Patient Care Plan (Draft)
-                               </h5>
-                               <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed font-medium">
-                                  {aiInsights.carePlan}
-                               </p>
-                               <button className="mt-4 text-[10px] font-bold text-primary uppercase flex items-center gap-1 hover:underline">
-                                  <span className="material-symbols-outlined text-xs">send</span> Send to Patient via SMS
-                               </button>
-                            </div>
-                            
-                            <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 text-white">
-                               <h5 className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                                  <span className="material-symbols-outlined text-sm">psychology</span> Clinical Second Opinion
-                               </h5>
-                               <p className="text-sm text-slate-300 leading-relaxed font-medium italic">
-                                  "{aiInsights.secondOpinion}"
-                               </p>
-                            </div>
+                    {activeTab === 'chat' && (
+                      <div className="flex flex-col h-full animate-in fade-in duration-500">
+                         <div className="flex-1 space-y-4 mb-6">
+                            {chatHistory.length === 0 && (
+                              <div className="text-center py-20 flex flex-col items-center opacity-30">
+                                 <span className="material-symbols-outlined text-6xl mb-4">smart_toy</span>
+                                 <p className="text-sm font-bold uppercase tracking-widest">Interrogate the Case</p>
+                                 <p className="text-xs mt-2 max-w-[200px]">Ask Gemini details about history, medications, or symptoms mentioned in call.</p>
+                              </div>
+                            )}
+                            {chatHistory.map((chat, i) => (
+                              <div key={i} className={`flex ${chat.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                 <div className={`max-w-[85%] p-4 rounded-3xl text-sm font-medium leading-relaxed ${chat.role === 'user' ? 'bg-primary text-white rounded-br-sm' : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-bl-sm shadow-sm'}`}>
+                                    {chat.text}
+                                 </div>
+                              </div>
+                            ))}
+                            {isChatLoading && (
+                              <div className="flex justify-start">
+                                 <div className="bg-slate-100 dark:bg-slate-800 p-4 rounded-2xl animate-pulse flex gap-2">
+                                    <div className="size-1.5 bg-slate-400 rounded-full animate-bounce"></div>
+                                    <div className="size-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                                    <div className="size-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                                 </div>
+                              </div>
+                            )}
                          </div>
-                       )}
-                    </section>
-
-                    <div className="grid grid-cols-2 gap-6">
-                      <div className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-2xl border border-slate-100 dark:border-slate-800">
-                         <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2">Chief Complaint</p>
-                         <p className="text-sm font-bold text-slate-800 dark:text-white">{selectedCase.chiefComplaint || 'N/A'}</p>
+                         <form onSubmit={handleSendMessage} className="sticky bottom-0 bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-3xl p-2 flex gap-3 shadow-xl">
+                            <input 
+                               value={chatMessage}
+                               onChange={(e) => setChatMessage(e.target.value)}
+                               placeholder="Ask Gemini about the transcript..."
+                               className="flex-1 bg-transparent border-none px-4 py-3 text-sm focus:ring-0 outline-none"
+                            />
+                            <button type="submit" disabled={isChatLoading || !chatMessage.trim()} className="bg-primary text-white size-12 rounded-2xl flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-lg shadow-primary/20">
+                               <span className="material-symbols-outlined">send</span>
+                            </button>
+                         </form>
                       </div>
-                      <div className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-2xl border border-slate-100 dark:border-slate-800">
-                         <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2">Severity Rating</p>
-                         <div className="flex items-center gap-3">
-                            <div className="flex-1 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                               <div className={`h-full transition-all duration-1000 ${selectedCase.severityScale && selectedCase.severityScale > 7 ? 'bg-red-500' : 'bg-primary'}`} style={{ width: `${(selectedCase.severityScale || 0) * 10}%` }}></div>
-                            </div>
-                            <span className="text-sm font-black">{selectedCase.severityScale || 0}/10</span>
+                    )}
+
+                    {activeTab === 'transcript' && (
+                      <div className="animate-in fade-in duration-500 pb-10">
+                         <div className="space-y-6">
+                            {selectedCase.transcript ? selectedCase.transcript.split('\n').map((line, i) => (
+                              <div key={i} className="flex gap-4 group">
+                                 <div className="w-16 shrink-0 text-[10px] font-bold text-slate-300 mt-1 uppercase tracking-tighter">LINE {i+1}</div>
+                                 <div className="flex-1 text-sm text-slate-600 dark:text-slate-400 font-medium leading-relaxed group-hover:text-slate-900 dark:group-hover:text-white transition-colors">{line}</div>
+                              </div>
+                            )) : <p className="text-center py-20 text-slate-400 italic">No interaction transcript available.</p>}
                          </div>
                       </div>
-                    </div>
-
-                    <section>
-                      <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Immediate Recommended Action</h4>
-                      <div className={`p-6 rounded-2xl border flex items-start gap-4 transition-all ${selectedCase.redFlagsPresent ? 'bg-red-50 border-red-100 text-red-700 dark:bg-red-900/10 dark:border-red-900/20' : 'bg-emerald-50 border-emerald-100 text-emerald-700 dark:bg-emerald-900/10 dark:border-emerald-900/20'}`}>
-                         <span className="material-symbols-outlined text-3xl mt-0.5">{selectedCase.redFlagsPresent ? 'emergency' : 'verified_user'}</span>
-                         <p className="text-sm font-bold leading-relaxed">
-                            {selectedCase.recommendedAction || 'Continue monitoring symptoms and follow protocol if condition changes.'}
-                         </p>
-                      </div>
-                    </section>
-
-                    <section>
-                      <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2 sticky top-0 bg-white dark:bg-slate-900 py-2 z-10">
-                         <span className="material-symbols-outlined text-sm text-primary">forum</span> Interaction Transcript
-                      </h4>
-                      <div className="space-y-4 pb-8">
-                         {selectedCase.transcript ? (
-                           selectedCase.transcript.split('\n').map((line, i) => (
-                             <div key={i} className="text-sm leading-relaxed text-slate-600 dark:text-slate-400 pb-4 border-b border-slate-50 dark:border-slate-800 last:border-0">
-                                {line}
-                             </div>
-                           ))
-                         ) : (
-                           <p className="text-sm text-slate-400 italic">No transcript recorded.</p>
-                         )}
-                      </div>
-                    </section>
+                    )}
                   </div>
 
-                  {/* Drawer Footer / Assignment */}
-                  <div className="p-8 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/80 shrink-0">
+                  {/* Drawer Footer */}
+                  <div className="p-8 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 shrink-0">
                     <button 
                       onClick={() => setIsAssigning(selectedCase.vapiCallId)}
-                      className="w-full bg-primary text-white font-bold py-4 rounded-2xl hover:bg-primary/90 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-primary/20 flex items-center justify-center gap-2"
+                      className="w-full bg-slate-950 dark:bg-primary text-white font-black py-5 rounded-3xl hover:opacity-90 transition-all shadow-2xl flex items-center justify-center gap-3 uppercase tracking-[0.2em] text-xs"
                     >
-                      <span className="material-symbols-outlined">person_add</span>
-                      {selectedCase.assignedDoctor ? `Assigned to ${selectedCase.assignedDoctor.split(' ').pop()}` : 'Assign to On-Duty Physician'}
+                      <span className="material-symbols-outlined text-lg">clinical_notes</span>
+                      {selectedCase.assignedDoctor ? `CASE ASSIGNED TO ${selectedCase.assignedDoctor.toUpperCase()}` : 'INITIALIZE CLINICAL ASSIGNMENT'}
                     </button>
 
                     {isAssigning === selectedCase.vapiCallId && (
-                      <div className="absolute inset-x-0 bottom-0 p-8 bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 animate-in slide-in-from-bottom-full duration-300 z-[60] shadow-2xl">
-                        <div className="flex justify-between items-center mb-6">
+                      <div className="absolute inset-x-0 bottom-0 p-8 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 animate-in slide-in-from-bottom-full duration-300 z-[60] shadow-2xl rounded-t-[3rem]">
+                        <div className="flex justify-between items-center mb-8">
                            <div>
-                              <h4 className="font-bold text-lg leading-none">Select Medical Staff</h4>
-                              <p className="text-xs text-slate-500 mt-1 font-medium">Assign patient to current shift coverage.</p>
+                              <h4 className="font-bold text-xl tracking-tight leading-none text-slate-900 dark:text-white">Route to Coverage</h4>
+                              <p className="text-xs text-slate-500 mt-2 font-bold uppercase tracking-widest">On-Duty Medical Staff</p>
                            </div>
-                           <button onClick={() => setIsAssigning(null)} className="size-8 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center transition-colors">
+                           <button onClick={() => setIsAssigning(null)} className="size-10 rounded-full border border-slate-100 dark:border-slate-800 flex items-center justify-center transition-all hover:bg-slate-50">
                               <span className="material-symbols-outlined text-slate-400">close</span>
                            </button>
                         </div>
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-2 gap-4">
                            {DOCTORS.map(doc => (
-                             <button 
-                                key={doc.id}
-                                onClick={() => assignDoctor(selectedCase.vapiCallId, doc.name)}
-                                className="p-4 border border-slate-100 dark:border-slate-800 rounded-2xl hover:border-primary hover:text-primary hover:bg-primary/5 transition-all text-sm font-bold text-left flex items-center gap-3 group"
-                             >
-                                <div className={`size-8 rounded-full ${doc.color} flex items-center justify-center text-xs group-hover:scale-110 transition-transform`}>{doc.name[4]}</div>
+                             <button key={doc.id} onClick={() => assignDoctor(selectedCase.vapiCallId, doc.name)} className="p-5 border border-slate-100 dark:border-slate-800 rounded-3xl hover:border-primary hover:bg-primary/5 transition-all text-sm font-bold text-left flex items-center gap-4 group">
+                                <div className={`size-10 rounded-xl ${doc.color} flex items-center justify-center text-sm group-hover:scale-110 transition-transform`}>{doc.name[4]}</div>
                                 <div>
-                                   <p className="leading-none">{doc.name}</p>
-                                   <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-tighter">{doc.specialty}</p>
+                                   <p className="leading-none text-slate-900 dark:text-white">{doc.name}</p>
+                                   <p className="text-[10px] text-slate-400 mt-1 uppercase font-black">{doc.specialty}</p>
                                 </div>
                              </button>
                            ))}
