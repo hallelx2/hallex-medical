@@ -47,7 +47,7 @@ An advanced, hospital-grade AI Voice Triage and Clinical Management Dashboard. T
 1. **Intake:** Patient calls the Vapi Agent (e.g., Dr. Trevor).
 2. **Analysis:** Vapi extracts structured clinical data (Chief Complaint, Triage Grade, etc.) and fires a webhook.
 3. **Queue:** The dashboard receives the webhook and **automatically assigns** the case to the doctor with the lowest current workload.
-4. **Review:** The doctor opens the **Case Slider**, reviews the **Gemini 2.0 Analysis**, interrogates the transcript via **AI Chat**, and dispatches the **Care Plan**.
+4. **Review:** The doctor opens the **Case Slider**, reviews the **Gemini 2.5 Pro Analysis**, interrogates the transcript via **AI Chat**, and dispatches the **Care Plan**.
 
 ---
 
