@@ -1,5 +1,4 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { NextResponse } from "next/server";
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY || "");
 
@@ -7,7 +6,6 @@ export async function POST(req: Request) {
   try {
     const { transcript, message, history = [] } = await req.json();
 
-    // Upgraded to Gemini 2.5 Pro for unmatched clinical reasoning and RAG depth
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
 
     const chat = model.startChat({
@@ -24,13 +22,27 @@ export async function POST(req: Request) {
       ],
     });
 
-    const result = await chat.sendMessage(message);
-    const response = await result.response;
-    const text = response.text();
+    const result = await chat.sendMessageStream(message);
     
-    return NextResponse.json({ text });
+    // Create a readable stream to pipe Gemini's output directly to the client
+    const stream = new ReadableStream({
+      async start(controller) {
+        for await (const chunk of result.stream) {
+          const chunkText = chunk.text();
+          controller.enqueue(new TextEncoder().encode(chunkText));
+        }
+        controller.close();
+      },
+    });
+
+    return new Response(stream, {
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    });
   } catch (error: any) {
     console.error("AI Chat Error:", error);
-    return NextResponse.json({ error: "Failed to process chat", details: error.message }, { status: 500 });
+    return new Response(JSON.stringify({ error: "Failed to process chat", details: error.message }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 }
