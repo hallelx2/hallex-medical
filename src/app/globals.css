@@ -36,12 +36,9 @@ body {
   vertical-align: middle;
 }
 
-/* White-labeling: Hide Clerk Dev Badge & Branding */
-.cl-internal-b3fm6y, 
-.cl-internal-17yyfcl,
-[class^="cl-internal"],
+/* White-labeling: Target only the specific branding and dev elements */
 .cl-branding,
-.cl-footerAction__signIn,
-.cl-footerAction__signUp {
+.cl-internal-b3fm6y, 
+.cl-internal-17yyfcl {
   display: none !important;
 }

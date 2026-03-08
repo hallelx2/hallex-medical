@@ -18,14 +18,15 @@ export default function SignUpPage() {
             appearance={{
               elements: {
                 rootBox: "w-full",
-                card: "shadow-none border-0 p-0 w-full",
+                card: "shadow-none border-0 p-0 w-full bg-transparent",
                 formButtonPrimary: "bg-primary hover:bg-primary/90 text-sm normal-case font-bold h-12 rounded-xl transition-all shadow-md shadow-primary/10",
                 socialButtonsBlockButton: "rounded-xl border-slate-200 text-sm font-semibold h-12",
                 formFieldInput: "rounded-xl border-slate-200 bg-slate-50 h-12 focus:ring-2 focus:ring-primary/20 transition-all",
                 footer: "hidden", 
-                header: "hidden", 
                 dividerRow: "my-6",
                 formFieldLabel: "text-slate-700 font-bold text-xs uppercase tracking-widest mb-2",
+                headerTitle: "hidden",
+                headerSubtitle: "hidden",
               }
             }}
           />
