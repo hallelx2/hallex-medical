@@ -16,7 +16,7 @@ export default function SignInPage() {
 
   const signInWithGoogle = () => {
     if (!isLoaded || !signIn) return;
-    signIn.authenticateWithRedirect({
+    (signIn as any).authenticateWithRedirect({
       strategy: "oauth_google",
       redirectUrl: "/sign-up/sso-callback",
       redirectUrlComplete: "/",

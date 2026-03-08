@@ -20,7 +20,7 @@ export default function SignUpPage() {
 
   const signUpWithGoogle = () => {
     if (!isLoaded || !signUp) return;
-    signUp.authenticateWithRedirect({
+    (signUp as any).authenticateWithRedirect({
       strategy: "oauth_google",
       redirectUrl: "/sign-up/sso-callback",
       redirectUrlComplete: "/",
