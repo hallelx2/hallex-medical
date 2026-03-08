@@ -94,10 +94,7 @@ export default function OverviewPage() {
     
     const userMsg = chatMessage;
     setChatMessage("");
-    
-    // Add user message to history
-    const newHistoryBeforeStream = [...chatHistory, { role: 'user' as const, text: userMsg }];
-    setChatHistory(newHistoryBeforeStream);
+    setChatHistory(prev => [...prev, { role: 'user' as const, text: userMsg }]);
     setIsChatLoading(true);
 
     try {
@@ -118,7 +115,6 @@ export default function OverviewPage() {
       const decoder = new TextDecoder();
       let assistantMsg = "";
 
-      // Add a placeholder for the assistant's message in the state
       setChatHistory(prev => [...prev, { role: 'model', text: "" }]);
 
       while (true) {
@@ -128,14 +124,13 @@ export default function OverviewPage() {
         const chunk = decoder.decode(value);
         assistantMsg += chunk;
         
-        // Update only the last message (the assistant's current stream)
         setChatHistory(prev => {
           const updated = [...prev];
           updated[updated.length - 1] = { role: 'model', text: assistantMsg };
           return updated;
         });
       }
-      mutate(); // Sync with DB
+      mutate();
     } catch (err) {
       console.error("Chat Error:", err);
     } finally {
@@ -188,7 +183,6 @@ export default function OverviewPage() {
   return (
     <DashboardLayout>
       <div className="p-8 relative min-h-full font-jakarta">
-        {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
             <div className="flex justify-between items-start">
@@ -234,7 +228,6 @@ export default function OverviewPage() {
           </div>
         </div>
 
-        {/* Full-Width Table */}
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col min-h-[600px]">
           <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900 sticky top-0 z-[5]">
             <h3 className="font-bold text-lg flex items-center gap-2">
@@ -246,70 +239,77 @@ export default function OverviewPage() {
               Refresh Queue
             </button>
           </div>
-                        <div className="overflow-x-auto flex-1 relative">
-                          {isTableLoading && calls.length === 0 && (
-                            <div className="absolute inset-0 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm z-20 flex flex-col items-center justify-center">
-                               <div className="size-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin mb-4"></div>
-                               <p className="text-sm font-bold text-slate-500 animate-pulse">Initializing Triage Queue...</p>
-                            </div>
-                          )}
-                          
-                          <table className="w-full text-left border-collapse">
-                            <thead>
-                              <tr className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 text-[10px] uppercase font-bold tracking-[0.1em]">
-                                <th className="px-6 py-4">Patient Interaction</th>
-                                <th className="px-6 py-4">Clinical Overview</th>
-                                <th className="px-6 py-4">AI Processing</th>
-                                <th className="px-6 py-4">Assignment Status</th>
-                                <th className="px-6 py-4 text-right">Action</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-jakarta">
-                              {calls.map((call) => (
-                                <tr
-                                  key={call.vapiCallId}
-                                  onClick={() => setSelectedCaseId(call.vapiCallId)}
-                                  className={`cursor-pointer transition-all group ${selectedCaseId === call.vapiCallId ? 'bg-primary/5 border-l-4 border-l-primary' : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/20'}`}
-                                >
-                                  <td className="px-6 py-4">
-                                    <div className="flex items-center gap-3">
-                                      <div className={`size-10 rounded-full flex items-center justify-center font-bold text-sm uppercase ${call.redFlagsPresent ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}>
-                                        {call.customerNumber.slice(-2)}
-                                      </div>
-                                      <div>
-                                        <span className="font-bold text-base block">{call.customerNumber}</span>
-                                        <span className="text-[10px] text-slate-400 font-mono tracking-tighter uppercase">{new Date(call.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span>
-                                      </div>
-                                    </div>
-                                  </td>
-                                  <td className="px-6 py-4">
-                                     <div className="flex flex-col gap-1.5">
-                                        <span className={`w-fit px-2 py-0.5 rounded-full text-[9px] font-bold uppercase border ${
-                                           call.priority === 'High' ? 'bg-red-100 text-red-700 border-red-200' :
-                                           call.priority === 'Medium' ? 'bg-amber-100 text-amber-700 border-amber-200' :
-                                           'bg-emerald-100 text-emerald-700 border-emerald-200'
-                                        }`}>
-                                          {call.priority} Priority
-                                        </span>
-                                        <p className="text-sm text-slate-600 dark:text-slate-400 font-medium line-clamp-1 italic max-w-[200px]">
-                                           {call.chiefComplaint || 'Awaiting clinical data...'}
-                                        </p>
-                                     </div>
-                                  </td>
-                                  <td className="px-6 py-4">
-                                     <div className="flex flex-col gap-2">
-                                        <div className="flex items-center gap-2">
-                                           <span className={`size-1.5 rounded-full ${call.carePlan ? 'bg-emerald-500' : 'bg-slate-300'}`}></span>
-                                           <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Analysis: {call.carePlan ? 'READY' : 'PENDING'}</span>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                           <span className={`size-1.5 rounded-full ${call.chatHistory && call.chatHistory.length > 0 ? 'bg-blue-500' : 'bg-slate-300'}`}></span>
-                                           <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Interrogated: {call.chatHistory && call.chatHistory.length > 0 ? 'YES' : 'NO'}</span>
-                                        </div>
-                                     </div>
-                                  </td>
-                                  <td className="px-6 py-4">
           
+          <div className="overflow-x-auto flex-1 relative">
+            {isTableLoading && calls.length === 0 && (
+              <div className="absolute inset-0 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm z-20 flex flex-col items-center justify-center">
+                 <div className="size-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin mb-4"></div>
+                 <p className="text-sm font-bold text-slate-500 animate-pulse">Initializing Triage Queue...</p>
+              </div>
+            )}
+            
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 text-[10px] uppercase font-bold tracking-[0.1em]">
+                  <th className="px-6 py-4">Patient Interaction</th>
+                  <th className="px-6 py-4">Clinical Overview</th>
+                  <th className="px-6 py-4">AI Processing</th>
+                  <th className="px-6 py-4">Assignment Status</th>
+                  <th className="px-6 py-4 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-jakarta">
+                {calls.map((call) => (
+                  <tr
+                    key={call.vapiCallId}
+                    onClick={() => setSelectedCaseId(call.vapiCallId)}
+                    className={`cursor-pointer transition-all group ${selectedCaseId === call.vapiCallId ? 'bg-primary/5 border-l-4 border-l-primary' : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/20'}`}
+                  >
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className={`size-10 rounded-full flex items-center justify-center font-bold text-sm uppercase ${call.redFlagsPresent ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}>
+                          {call.customerNumber.slice(-2)}
+                        </div>
+                        <div>
+                          <span className="font-bold text-base block">{call.customerNumber}</span>
+                          <span className="text-[10px] text-slate-400 font-mono tracking-tighter uppercase">{new Date(call.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                       <div className="flex flex-col gap-1.5">
+                          <span className={`w-fit px-2 py-0.5 rounded-full text-[9px] font-bold uppercase border ${
+                             call.priority === 'High' ? 'bg-red-100 text-red-700 border-red-200' :
+                             call.priority === 'Medium' ? 'bg-amber-100 text-amber-700 border-amber-200' :
+                             'bg-emerald-100 text-emerald-700 border-emerald-200'
+                          }`}>
+                            {call.priority} Priority
+                          </span>
+                          <p className="text-sm text-slate-600 dark:text-slate-400 font-medium line-clamp-1 italic max-w-[200px]">
+                             {call.chiefComplaint || 'Awaiting clinical data...'}
+                          </p>
+                       </div>
+                    </td>
+                    <td className="px-6 py-4">
+                       <div className="flex flex-col gap-2">
+                          <div className="flex items-center gap-2">
+                             <span className={`size-1.5 rounded-full ${call.carePlan ? 'bg-emerald-500' : 'bg-slate-300'}`}></span>
+                             <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Analysis: {call.carePlan ? 'READY' : 'PENDING'}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                             <span className={`size-1.5 rounded-full ${call.chatHistory && call.chatHistory.length > 0 ? 'bg-blue-500' : 'bg-slate-300'}`}></span>
+                             <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Interrogated: {call.chatHistory && call.chatHistory.length > 0 ? 'YES' : 'NO'}</span>
+                          </div>
+                       </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                         <div className={`size-2 rounded-full ${call.assignedDoctor ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`}></div>
+                         <span className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase">
+                            {call.assignedDoctor ? call.assignedDoctor.split(' ').pop() : 'Pending'}
+                         </span>
+                      </div>
+                    </td>
                     <td className="px-6 py-4 text-right">
                        <button className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-primary group-hover:bg-primary group-hover:text-white p-2 rounded-xl transition-all shadow-sm">
                           <span className="material-symbols-outlined text-xl">open_in_new</span>
@@ -322,7 +322,6 @@ export default function OverviewPage() {
           </div>
         </div>
 
-        {/* TABBED SLIDE-OVER DRAWER */}
         {selectedCaseId && (
           <>
             <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-[40] transition-opacity animate-in fade-in duration-300" onClick={() => setSelectedCaseId(null)} />
@@ -345,7 +344,6 @@ export default function OverviewPage() {
                       </button>
                     </div>
                     
-                    {/* Tab Navigation */}
                     <div className="flex bg-black/10 rounded-xl p-1 mt-4">
                        {[
                          { id: 'analysis', label: 'Clinical Analysis', icon: 'psychology' },
@@ -367,7 +365,6 @@ export default function OverviewPage() {
                   <div className="flex-1 overflow-y-auto p-8 custom-scrollbar bg-slate-50/30 dark:bg-slate-900/30">
                     {activeTab === 'analysis' && (
                       <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                        {/* Summary & Billing */}
                         <section>
                           <div className="flex justify-between items-center mb-4">
                              <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Initial AI Summary</h4>
@@ -383,7 +380,7 @@ export default function OverviewPage() {
                              )}
                           </div>
                           <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                             <p className="text-base text-slate-700 dark:text-slate-200 leading-relaxed font-medium italic italic">"{selectedCase.doctorSummary || 'Awaiting agent report...'}"</p>
+                             <p className="text-base text-slate-700 dark:text-slate-200 leading-relaxed font-medium italic">"{selectedCase.doctorSummary || 'Awaiting agent report...'}"</p>
                           </div>
                         </section>
 
@@ -470,7 +467,6 @@ export default function OverviewPage() {
                     )}
                   </div>
 
-                  {/* Drawer Footer */}
                   <div className="p-8 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 shrink-0">
                     <button 
                       onClick={() => setIsAssigning(selectedCase.vapiCallId)}
