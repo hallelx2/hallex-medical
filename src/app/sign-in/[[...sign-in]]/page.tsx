@@ -22,7 +22,7 @@ export default function SignInPage() {
     setError("");
 
     try {
-      const result = await signIn.create({
+      const result: any = await signIn.create({
         identifier: email,
         password,
       } as any);
