@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { UserButton, useUser, Show } from "@clerk/nextjs";
 
 export default function DashboardLayout({
   children,
@@ -10,6 +11,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const { user } = useUser();
 
   const navItems = [
     { name: "Overview", href: "/", icon: "dashboard" },
@@ -92,21 +94,24 @@ export default function DashboardLayout({
               <span className="absolute top-2 right-2 size-2 bg-red-500 border-2 border-white dark:border-slate-900 rounded-full"></span>
             </button>
             <div className="h-8 w-px bg-slate-200 dark:border-slate-800 mx-2"></div>
-            <div className="flex items-center gap-3">
-              <div className="text-right">
-                <p className="text-sm font-bold">Sarah Jenkins, RN</p>
-                <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">
-                  Triage Lead
-                </p>
-              </div>
-              <div className="size-10 rounded-full border-2 border-primary/20 overflow-hidden">
-                <img
-                  className="w-full h-full object-cover"
-                  src="https://i.pravatar.cc/150?u=sarah"
-                  alt="User avatar"
+            
+            <Show when="signed-in">
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <p className="text-sm font-bold">{user?.fullName || 'Doctor'}</p>
+                  <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">
+                    {user?.publicMetadata?.role as string || 'Medical Staff'}
+                  </p>
+                </div>
+                <UserButton 
+                  appearance={{
+                    elements: {
+                      userButtonAvatarBox: "size-10 border-2 border-primary/20"
+                    }
+                  }}
                 />
               </div>
-            </div>
+            </Show>
           </div>
         </header>
 

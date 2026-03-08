@@ -10,6 +10,17 @@ export const triageGradeEnum = pgEnum("triage_grade", [
 
 export const callStatusEnum = pgEnum("call_status", ["pending", "assigned", "completed"]);
 
+export const doctors = pgTable("doctors", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  clerkId: text("clerk_id").unique().notNull(),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  specialty: text("specialty"),
+  role: text("role").default("doctor").notNull(), // 'admin' or 'doctor'
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const triageCalls = pgTable("triage_calls", {
   id: uuid("id").primaryKey().defaultRandom(),
   vapiCallId: text("vapi_call_id").unique().notNull(),
