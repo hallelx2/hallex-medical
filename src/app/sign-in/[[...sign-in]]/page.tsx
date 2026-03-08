@@ -25,7 +25,7 @@ export default function SignInPage() {
       const result = await signIn.create({
         identifier: email,
         password,
-      });
+      } as any);
 
       if (result.status === "complete") {
         if (setActive) {
