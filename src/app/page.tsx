@@ -207,6 +207,21 @@ export default function OverviewPage() {
     }
   };
 
+  const handleDeleteCase = async (e: React.MouseEvent, callId: string) => {
+    e.stopPropagation(); // Don't open the drawer
+    if (!confirm("Are you sure you want to delete this case? This action is permanent and will be logged.")) return;
+    
+    try {
+      const res = await fetch(`/api/vapi/webhook?id=${callId}`, { method: "DELETE" });
+      if (res.ok) {
+        mutate();
+        if (selectedCaseId === callId) setSelectedCaseId(null);
+      }
+    } catch (err) {
+      console.error("Delete Error:", err);
+    }
+  };
+
   const pendingCount = calls.filter((c) => c.status === "pending").length;
   const criticalCount = calls.filter((c) => c.redFlagsPresent).length;
 
@@ -341,9 +356,18 @@ export default function OverviewPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right">
-                       <button className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-primary group-hover:bg-primary group-hover:text-white p-2 rounded-xl transition-all shadow-sm">
-                          <span className="material-symbols-outlined text-xl">open_in_new</span>
-                       </button>
+                       <div className="flex justify-end gap-2">
+                          <button 
+                            onClick={(e) => handleDeleteCase(e, call.vapiCallId)}
+                            className="bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 hover:bg-red-500 hover:text-white p-2 rounded-xl transition-all shadow-sm text-red-500"
+                            title="Delete Case"
+                          >
+                             <span className="material-symbols-outlined text-xl">delete</span>
+                          </button>
+                          <button className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-primary group-hover:bg-primary group-hover:text-white p-2 rounded-xl transition-all shadow-sm">
+                             <span className="material-symbols-outlined text-xl">open_in_new</span>
+                          </button>
+                       </div>
                     </td>
                   </tr>
                 ))}

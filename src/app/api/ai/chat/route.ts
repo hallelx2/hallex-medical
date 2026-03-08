@@ -9,8 +9,8 @@ export async function POST(req: Request) {
   try {
     const { transcript, message, history = [], callId } = await req.json();
 
-    // Powered by Gemini 1.5 Pro for deep transcript interrogation
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+    // Powered by Gemini 2.0 Pro Exp for deep transcript interrogation and clinical reasoning
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-pro-exp" });
 
     const chat = model.startChat({
       history: [
@@ -20,7 +20,7 @@ export async function POST(req: Request) {
         },
         {
           role: "model",
-          parts: [{ text: "Understood. I have reviewed the interaction using Gemini 1.5 Pro's advanced reasoning. How can I assist you with this complex case?" }],
+          parts: [{ text: "Understood. I have reviewed the interaction using Gemini 2.0 Pro's advanced reasoning. How can I assist you with this complex case?" }],
         },
         ...history
       ],

@@ -10,8 +10,8 @@ export async function POST(req: Request) {
   try {
     const { summary, complaint, grade, transcript, callId } = await req.json();
 
-    // Powered by Gemini 1.5 Pro for state-of-the-art clinical decision support
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+    // Upgraded to Gemini 2.0 Pro Exp for maximum clinical reasoning depth
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-pro-exp" });
 
     const prompt = `
       You are an expert clinical triage assistant and medical coder at St. Mary's Hospital. 

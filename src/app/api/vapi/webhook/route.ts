@@ -248,3 +248,32 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Failed", details: error.message }, { status: 500 });
   }
 }
+
+export async function DELETE(req: Request) {
+  const requestId = crypto.randomUUID();
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+
+    if (!id) return NextResponse.json({ error: "ID required" }, { status: 400 });
+
+    const deleted = await db.delete(triageCalls)
+      .where(eq(triageCalls.vapiCallId, id))
+      .returning();
+
+    if (deleted.length > 0) {
+      await writeAudit({
+        actorType: "USER",
+        callId: id,
+        eventType: "CASE_DELETED",
+        metadata: { customerNumber: deleted[0].customerNumber },
+        requestId,
+      });
+      return NextResponse.json({ success: true });
+    }
+
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  } catch (error: any) {
+    return NextResponse.json({ error: "Failed", details: error.message }, { status: 500 });
+  }
+}
