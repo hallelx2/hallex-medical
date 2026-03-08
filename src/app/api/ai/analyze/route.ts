@@ -23,8 +23,8 @@ export async function POST(req: Request) {
       - Full Transcript: ${transcript}
 
       Format your response as a JSON object with keys "carePlan" and "secondOpinion".
-      Do not include any markdown formatting like ```json in your response, just the raw JSON string.
-    `;
+      Do not include any markdown formatting like \`\`\`json in your response, just the raw JSON string.
+    \`;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
