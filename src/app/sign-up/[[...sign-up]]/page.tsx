@@ -19,12 +19,20 @@ export default function SignUpPage() {
   const router = useRouter();
 
   const signUpWithGoogle = () => {
-    if (!isLoaded || !signUp) return;
-    (signUp as any).authenticateWithRedirect({
-      strategy: "oauth_google",
-      redirectUrl: "/sign-up/sso-callback",
-      redirectUrlComplete: "/",
-    });
+    if (!isLoaded || !signUp) {
+      console.error("Clerk not loaded yet");
+      return;
+    }
+    console.log("Initiating Google Sign-Up redirect...");
+    try {
+      (signUp as any).authenticateWithRedirect({
+        strategy: "oauth_google",
+        redirectUrl: "/sign-up/sso-callback",
+        redirectUrlComplete: "/",
+      });
+    } catch (err) {
+      console.error("OAuth Error:", err);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
