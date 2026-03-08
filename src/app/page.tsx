@@ -34,6 +34,8 @@ const DOCTORS = [
 export default function OverviewPage() {
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
   const [isAssigning, setIsAssigning] = useState<string | null>(null);
+  const [aiInsights, setAiInsights] = useState<{ carePlan: string; secondOpinion: string } | null>(null);
+  const [isAiLoading, setIsAiLoading] = useState(false);
   
   const { data: calls = [], mutate, isLoading: isTableLoading } = useSWR<CallReport[]>(
     "/api/vapi/webhook",
@@ -42,6 +44,36 @@ export default function OverviewPage() {
   );
 
   const selectedCase = calls.find(c => c.vapiCallId === selectedCaseId);
+
+  const generateAiInsights = async () => {
+    if (!selectedCase) return;
+    setIsAiLoading(true);
+    try {
+      const res = await fetch("/api/ai/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          summary: selectedCase.doctorSummary,
+          complaint: selectedCase.chiefComplaint,
+          grade: selectedCase.triageGrade,
+          transcript: selectedCase.transcript
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAiInsights(data);
+      }
+    } catch (err) {
+      console.error("AI Insight Error:", err);
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
+
+  // Reset AI insights when case changes
+  React.useEffect(() => {
+    setAiInsights(null);
+  }, [selectedCaseId]);
 
   const assignDoctor = async (callId: string, doctorName: string) => {
     try {
@@ -271,6 +303,45 @@ export default function OverviewPage() {
                             "{selectedCase.doctorSummary || 'Awaiting summary generation...'}"
                          </p>
                       </div>
+                    </section>
+
+                    {/* Gemini AI Insights Section */}
+                    <section className="pt-4 border-t border-slate-100 dark:border-slate-800">
+                       {!aiInsights ? (
+                         <button 
+                           onClick={generateAiInsights}
+                           disabled={isAiLoading}
+                           className="w-full py-4 border-2 border-dashed border-primary/30 rounded-2xl text-primary font-bold text-sm hover:bg-primary/5 transition-all flex items-center justify-center gap-2 group disabled:opacity-50"
+                         >
+                            <span className={`material-symbols-outlined ${isAiLoading ? 'animate-spin' : 'group-hover:rotate-12'}`}>
+                               {isAiLoading ? 'refresh' : 'temp_preferences_custom'}
+                            </span>
+                            {isAiLoading ? 'Gemini Analyzing...' : 'Generate Care Plan & Second Opinion'}
+                         </button>
+                       ) : (
+                         <div className="space-y-6 animate-in fade-in zoom-in-95 duration-500">
+                            <div className="bg-gradient-to-br from-primary/5 to-blue-500/5 p-6 rounded-2xl border border-primary/10">
+                               <h5 className="text-[10px] font-bold text-primary uppercase tracking-widest mb-3 flex items-center gap-2">
+                                  <span className="material-symbols-outlined text-sm">auto_awesome</span> Patient Care Plan (Draft)
+                               </h5>
+                               <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed font-medium">
+                                  {aiInsights.carePlan}
+                               </p>
+                               <button className="mt-4 text-[10px] font-bold text-primary uppercase flex items-center gap-1 hover:underline">
+                                  <span className="material-symbols-outlined text-xs">send</span> Send to Patient via SMS
+                               </button>
+                            </div>
+                            
+                            <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 text-white">
+                               <h5 className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                  <span className="material-symbols-outlined text-sm">psychology</span> Clinical Second Opinion
+                               </h5>
+                               <p className="text-sm text-slate-300 leading-relaxed font-medium italic">
+                                  "{aiInsights.secondOpinion}"
+                               </p>
+                            </div>
+                         </div>
+                       )}
                     </section>
 
                     <div className="grid grid-cols-2 gap-6">

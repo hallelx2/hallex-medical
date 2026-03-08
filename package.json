@@ -12,6 +12,7 @@
   "dependencies": {
     "@clerk/nextjs": "^7.0.1",
     "@clerk/shared": "^4.0.0",
+    "@google/generative-ai": "^0.24.1",
     "@neondatabase/serverless": "^1.0.2",
     "@vapi-ai/web": "^2.5.2",
     "drizzle-orm": "^0.45.1",
