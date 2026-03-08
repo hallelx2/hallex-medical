@@ -39,6 +39,7 @@ body {
 /* White-labeling: Target only the specific branding and dev elements */
 .cl-branding,
 .cl-internal-b3fm6y, 
-.cl-internal-17yyfcl {
+.cl-internal-17yyfcl,
+.cl-internal-1dauvpw {
   display: none !important;
 }
