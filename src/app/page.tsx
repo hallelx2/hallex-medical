@@ -32,12 +32,12 @@ type CallReport = {
   chatHistory: any;
 };
 
-const DOCTORS = [
-  { id: "1", name: "Dr. Michael Chen", specialty: "Cardiology", status: "Active", color: "bg-primary/10", icon: "person" },
-  { id: "2", name: "Dr. Elena Rodriguez", specialty: "ER Lead", status: "Active", color: "bg-blue-100 dark:bg-blue-900/40", icon: "medical_services" },
-  { id: "3", name: "Dr. James Wilson", specialty: "Neurology", status: "In Call", color: "bg-purple-100 dark:bg-purple-900/40", icon: "neurology" },
-  { id: "4", name: "Dr. Sarah Patel", specialty: "Pediatrics", status: "Active", color: "bg-indigo-100 dark:bg-indigo-900/40", icon: "pediatrics" },
-];
+type DbDoctor = {
+  id: string;
+  name: string;
+  specialty: string | null;
+  role: string;
+};
 
 export default function OverviewPage() {
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
@@ -59,6 +59,9 @@ export default function OverviewPage() {
     fetcher,
     { refreshInterval: 5000 }
   );
+
+  // Fetch real doctors from the DB
+  const { data: dbDoctors = [] } = useSWR<DbDoctor[]>("/api/doctors", fetcher);
 
   const selectedCase = calls.find(c => c.vapiCallId === selectedCaseId);
 
@@ -407,7 +410,7 @@ export default function OverviewPage() {
                              )}
                           </div>
                           <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                             <p className="text-base text-slate-700 dark:text-slate-200 leading-relaxed font-medium italic">"{selectedCase.doctorSummary || 'Awaiting agent report...'}"</p>
+                             <p className="text-base text-slate-700 dark:text-slate-200 leading-relaxed font-medium italic italic">"{selectedCase.doctorSummary || 'Awaiting agent report...'}"</p>
                           </div>
                         </section>
 
@@ -501,6 +504,7 @@ export default function OverviewPage() {
                     )}
                   </div>
 
+                  {/* Drawer Footer */}
                   <div className="p-8 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 shrink-0">
                     <button 
                       onClick={() => setIsAssigning(selectedCase.vapiCallId)}
@@ -522,12 +526,12 @@ export default function OverviewPage() {
                            </button>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
-                           {DOCTORS.map(doc => (
+                           {dbDoctors.map(doc => (
                              <button key={doc.id} onClick={() => assignDoctor(selectedCase.vapiCallId, doc.name)} className="p-5 border border-slate-100 dark:border-slate-800 rounded-3xl hover:border-primary hover:bg-primary/5 transition-all text-sm font-bold text-left flex items-center gap-4 group">
-                                <div className={`size-10 rounded-xl ${doc.color} flex items-center justify-center text-sm group-hover:scale-110 transition-transform`}>{doc.name[4]}</div>
+                                <div className={`size-10 rounded-xl bg-primary/10 flex items-center justify-center text-sm group-hover:scale-110 transition-transform text-primary font-black`}>{doc.name[4]}</div>
                                 <div>
                                    <p className="leading-none text-slate-900 dark:text-white">{doc.name}</p>
-                                   <p className="text-[10px] text-slate-400 mt-1 uppercase font-black">{doc.specialty}</p>
+                                   <p className="text-[10px] text-slate-400 mt-1 uppercase font-black">{doc.specialty || 'General'}</p>
                                 </div>
                              </button>
                            ))}
