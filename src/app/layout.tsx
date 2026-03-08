@@ -1,11 +1,16 @@
 import type { Metadata } from "next";
-import { Lexend } from "next/font/google";
+import { Lexend, Plus_Jakarta_Sans } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 
 const lexend = Lexend({
   subsets: ["latin"],
   variable: "--font-lexend",
+});
+
+const jakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-jakarta",
 });
 
 export const metadata: Metadata = {
@@ -26,7 +31,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className={`${lexend.variable} font-display antialiased`}>
+      <body className={`${lexend.variable} ${jakarta.variable} font-display antialiased`}>
         <ClerkProvider
           appearance={{
             elements: {

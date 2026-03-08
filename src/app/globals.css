@@ -12,6 +12,7 @@
   --color-background-light: #f6f7f8;
   --color-background-dark: #101922;
   --font-display: var(--font-lexend), Lexend, sans-serif;
+  --font-jakarta: var(--font-jakarta), "Plus Jakarta Sans", sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -27,6 +28,10 @@ body {
   font-family: var(--font-display);
 }
 
+.font-jakarta {
+  font-family: var(--font-jakarta);
+}
+
 .material-symbols-outlined {
   font-variation-settings:
     "FILL" 0,
@@ -34,14 +39,4 @@ body {
     "GRAD" 0,
     "opsz" 24;
   vertical-align: middle;
-}
-
-/* White-labeling: Hide specific Clerk branding elements */
-.cl-branding {
-  display: none !important;
-}
-
-/* Specific targeted dev badge from research */
-a[href*="clerk.com"][target="_blank"] {
-  display: none !important;
 }
