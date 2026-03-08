@@ -57,6 +57,11 @@ export const triageCalls = pgTable("triage_calls", {
   // Risk Factors
   riskFactors: jsonb("risk_factors"),
   
+  // Persistent AI Chat & Analysis
+  chatHistory: jsonb("chat_history").default([]),
+  carePlan: text("care_plan"),
+  secondOpinion: text("second_opinion"),
+  
   // Transcription & Media
   transcript: text("transcript"),
   recordingUrl: text("recording_url"),

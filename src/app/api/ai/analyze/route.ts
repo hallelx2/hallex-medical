@@ -1,13 +1,15 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextResponse } from "next/server";
+import { db } from "@/db";
+import { triageCalls } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY || "");
 
 export async function POST(req: Request) {
   try {
-    const { summary, complaint, grade, transcript } = await req.json();
+    const { summary, complaint, grade, transcript, callId } = await req.json();
 
-    // Upgraded to Gemini 2.5 Pro for state-of-the-art clinical insights and ICD-10 precision
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
 
     const prompt = `
@@ -33,7 +35,21 @@ export async function POST(req: Request) {
     const text = response.text();
     
     const cleanJson = text.replace(/```json|```/g, "").trim();
-    return NextResponse.json(JSON.parse(cleanJson));
+    const insights = JSON.parse(cleanJson);
+
+    // Persist to Database if callId is provided
+    if (callId) {
+      await db.update(triageCalls)
+        .set({
+          carePlan: insights.carePlan,
+          secondOpinion: insights.secondOpinion,
+          icd10Code: insights.icd10Code,
+          billingDescription: insights.billingDescription
+        })
+        .where(eq(triageCalls.vapiCallId, callId));
+    }
+    
+    return NextResponse.json(insights);
   } catch (error: any) {
     console.error("AI Analysis Error:", error);
     return NextResponse.json({ error: "Failed to generate AI insights", details: error.message }, { status: 500 });

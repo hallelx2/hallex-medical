@@ -1,10 +1,13 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { db } from "@/db";
+import { triageCalls } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY || "");
 
 export async function POST(req: Request) {
   try {
-    const { transcript, message, history = [] } = await req.json();
+    const { transcript, message, history = [], callId } = await req.json();
 
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
 
@@ -24,13 +27,28 @@ export async function POST(req: Request) {
 
     const result = await chat.sendMessageStream(message);
     
-    // Create a readable stream to pipe Gemini's output directly to the client
+    let fullResponse = "";
     const stream = new ReadableStream({
       async start(controller) {
         for await (const chunk of result.stream) {
           const chunkText = chunk.text();
+          fullResponse += chunkText;
           controller.enqueue(new TextEncoder().encode(chunkText));
         }
+        
+        // Persist the entire new interaction to the DB when stream ends
+        if (callId) {
+          const updatedHistory = [
+            ...history.map((h: any) => ({ role: h.role, text: h.parts[0].text })),
+            { role: "user", text: message },
+            { role: "model", text: fullResponse }
+          ];
+          
+          await db.update(triageCalls)
+            .set({ chatHistory: updatedHistory })
+            .where(eq(triageCalls.vapiCallId, callId));
+        }
+        
         controller.close();
       },
     });
