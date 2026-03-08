@@ -9,8 +9,6 @@ export default function SignInPage() {
   const { isLoaded, signIn, setActive } = useSignIn();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [code, setCode] = useState("");
-  const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -18,7 +16,7 @@ export default function SignInPage() {
   // Step 1: Initial Email/Password Submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isLoaded) return;
+    if (!isLoaded || !signIn) return;
     setLoading(true);
     setError("");
 
@@ -29,13 +27,13 @@ export default function SignInPage() {
       });
 
       if (result.status === "complete") {
-        await setActive({ session: result.createdSessionId });
-        router.push("/");
-      } else if (result.status === "needs_identifier") {
-         // Handle more steps if needed
+        if (setActive) {
+          await setActive({ session: result.createdSessionId });
+          router.push("/");
+        }
       }
     } catch (err: any) {
-      setError(err.errors[0].message);
+      setError(err.errors?.[0]?.message || "An error occurred during sign in.");
     } finally {
       setLoading(false);
     }
@@ -43,7 +41,7 @@ export default function SignInPage() {
 
   return (
     <div className="flex min-h-screen bg-white font-jakarta">
-      {/* Left Side: 100% Custom Form (No Clerk Components) */}
+      {/* Left Side: 100% Custom Form */}
       <div className="w-full lg:w-1/2 flex flex-col items-center justify-center p-8 lg:p-16">
         <div className="w-full max-w-md">
           <div className="mb-10 text-left">
@@ -92,7 +90,7 @@ export default function SignInPage() {
 
             <button 
               type="submit"
-              disabled={loading}
+              disabled={loading || !isLoaded}
               className="w-full bg-slate-900 hover:bg-slate-800 text-white font-black py-4 rounded-2xl transition-all shadow-xl flex items-center justify-center gap-2 uppercase tracking-widest text-xs disabled:opacity-50"
             >
               {loading ? (
@@ -112,7 +110,7 @@ export default function SignInPage() {
         </div>
       </div>
 
-      {/* Right Side: Bold Quotation */}
+      {/* Right Side */}
       <div className="hidden lg:flex w-1/2 bg-slate-950 relative overflow-hidden items-center justify-center p-20">
         <div className="absolute inset-0 opacity-20 pointer-events-none">
            <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary via-transparent to-transparent"></div>

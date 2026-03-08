@@ -17,10 +17,9 @@ export default function SignUpPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  // Step 1: Submit email/password
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isLoaded) return;
+    if (!isLoaded || !signUp) return;
     setLoading(true);
     setError("");
 
@@ -35,27 +34,28 @@ export default function SignUpPage() {
       await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
       setVerifying(true);
     } catch (err: any) {
-      setError(err.errors[0].message);
+      setError(err.errors?.[0]?.message || "An error occurred during sign up.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Step 2: Verify the code sent to email
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isLoaded) return;
+    if (!isLoaded || !signUp) return;
     setLoading(true);
     setError("");
 
     try {
       const completeSignUp = await signUp.attemptEmailAddressVerification({ code });
       if (completeSignUp.status === "complete") {
-        await setActive({ session: completeSignUp.createdSessionId });
-        router.push("/");
+        if (setActive) {
+          await setActive({ session: completeSignUp.createdSessionId });
+          router.push("/");
+        }
       }
     } catch (err: any) {
-      setError(err.errors[0].message);
+      setError(err.errors?.[0]?.message || "Verification failed.");
     } finally {
       setLoading(false);
     }
@@ -63,7 +63,6 @@ export default function SignUpPage() {
 
   return (
     <div className="flex min-h-screen bg-white font-jakarta text-slate-900">
-      {/* Left Side: 100% Custom UI */}
       <div className="w-full lg:w-1/2 flex flex-col items-center justify-center p-8 lg:p-16">
         <div className="w-full max-w-md">
           <div className="mb-10 text-left">
@@ -71,7 +70,7 @@ export default function SignUpPage() {
               <span className="material-symbols-outlined text-2xl font-bold">medical_services</span>
             </div>
             <h1 className="text-3xl font-extrabold tracking-tight uppercase tracking-tighter">Registration</h1>
-            <p className="mt-3 text-slate-500 font-medium">Initialize your clinical credentials at St. Mary's.</p>
+            <p className="mt-3 text-slate-500 font-medium">Initialize clinical credentials at St. Mary's.</p>
           </div>
 
           {!verifying ? (
@@ -128,7 +127,7 @@ export default function SignUpPage() {
 
               <button 
                 type="submit"
-                disabled={loading}
+                disabled={loading || !isLoaded}
                 className="w-full bg-primary hover:bg-primary/90 text-white font-black py-4 rounded-2xl transition-all shadow-xl flex items-center justify-center gap-2 uppercase tracking-widest text-xs disabled:opacity-50"
               >
                 {loading ? <span className="size-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span> : 'Create Profile'}
@@ -137,7 +136,7 @@ export default function SignUpPage() {
           ) : (
             <form onSubmit={handleVerify} className="space-y-6 animate-in slide-in-from-right-4 duration-500">
               <div className="text-center bg-primary/5 p-6 rounded-2xl border border-primary/10 mb-6">
-                <p className="text-sm text-primary font-bold">A verification code was sent to {email}.</p>
+                <p className="text-sm text-primary font-bold">Verification code sent to {email}.</p>
               </div>
               <div>
                 <label className="text-slate-700 font-black text-[10px] uppercase tracking-widest mb-2 block text-center">Enter verification code</label>
@@ -150,7 +149,7 @@ export default function SignUpPage() {
               </div>
               <button 
                 type="submit"
-                disabled={loading}
+                disabled={loading || !isLoaded}
                 className="w-full bg-slate-900 text-white font-black py-4 rounded-2xl transition-all shadow-xl uppercase tracking-widest text-xs"
               >
                 {loading ? <span className="size-5 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto"></span> : 'Complete Registration'}
@@ -167,7 +166,6 @@ export default function SignUpPage() {
         </div>
       </div>
 
-      {/* Right Side: Bold Quotation */}
       <div className="hidden lg:flex w-1/2 bg-blue-600 relative overflow-hidden items-center justify-center p-20">
         <div className="absolute inset-0 bg-gradient-to-br from-blue-700 to-blue-900"></div>
         <div className="absolute inset-0 opacity-10 pointer-events-none">
