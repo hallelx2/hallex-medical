@@ -1,90 +1,143 @@
 import { NextResponse } from "next/server";
-import fs from "fs/promises";
-import path from "path";
+import { db } from "@/db";
+import { triageCalls } from "@/db/schema";
+import { eq, count } from "drizzle-orm";
 
-const DATA_FILE = path.join(process.cwd(), "calls.json");
+export const dynamic = 'force-dynamic';
 
-async function getCalls() {
-  try {
-    const data = await fs.readFile(DATA_FILE, "utf-8");
-    return JSON.parse(data);
-  } catch (error) {
-    return [];
+const DOCTORS = [
+  "Dr. Michael Chen",
+  "Dr. Elena Rodriguez",
+  "Dr. James Wilson",
+  "Dr. Sarah Patel"
+];
+
+async function autoAssignDoctor() {
+  const results = await db
+    .select({
+      doctor: triageCalls.assignedDoctor,
+      activeCount: count(),
+    })
+    .from(triageCalls)
+    .where(eq(triageCalls.status, "assigned"))
+    .groupBy(triageCalls.assignedDoctor);
+
+  const stats = Object.fromEntries(
+    results.map((r: { doctor: string | null; activeCount: number }) => [
+      r.doctor || "Unknown",
+      r.activeCount,
+    ])
+  );
+  
+  let minLoad = Infinity;
+  let selectedDoctor = DOCTORS[0];
+
+  for (const doc of DOCTORS) {
+    const load = stats[doc] || 0;
+    if (load < minLoad) {
+      minLoad = load;
+      selectedDoctor = doc;
+    }
   }
-}
-
-async function saveCalls(calls: any[]) {
-  await fs.writeFile(DATA_FILE, JSON.stringify(calls, null, 2));
+  return selectedDoctor;
 }
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    console.log("Received Vapi Webhook:", body);
-
-    // Vapi sends different message types. We care about 'end-of-call-report' or 'call.status.completed'
-    // Depending on the Vapi version/config, it might be body.message.type
     const message = body.message || body;
+    const vapiCallId = message.call?.id || message.callId;
 
-    if (message.type === "end-of-call-report") {
-      const callData = {
-        id: message.call.id,
-        timestamp: new Date().toISOString(),
-        customerNumber: message.call.customer?.number || "Web Call",
-        summary: message.summary || "No summary provided",
-        transcript: message.transcript || "",
-        analysis: message.analysis || {},
-        recordingUrl: message.recordingUrl,
-        status: "pending", // pending assignment to doctor
-        assignedDoctor: null,
-      };
+    if (!vapiCallId) return NextResponse.json({ error: "No Call ID" });
 
-      const calls = await getCalls();
-      // Avoid duplicates
-      const existingIndex = calls.findIndex((c: any) => c.id === callData.id);
-      if (existingIndex > -1) {
-        calls[existingIndex] = { ...calls[existingIndex], ...callData };
-      } else {
-        calls.push(callData);
-      }
-
-      await saveCalls(calls);
+    // 1. Handle Live Session Events
+    if (message.type === 'call.started') {
+      await db.insert(triageCalls)
+        .values({
+          vapiCallId,
+          customerNumber: message.call?.customer?.number || 'Web Call',
+          callStartedAt: new Date(),
+          status: 'pending'
+        })
+        .onConflictDoUpdate({
+          target: triageCalls.vapiCallId,
+          set: { callStartedAt: new Date() }
+        });
       return NextResponse.json({ success: true });
     }
 
+    if (message.type === 'call.ended') {
+      await db.update(triageCalls)
+        .set({ callEndedAt: new Date() })
+        .where(eq(triageCalls.vapiCallId, vapiCallId));
+      return NextResponse.json({ success: true });
+    }
+
+    // 2. Handle Clinical Report & Auto-Assignment
+    if (message.type === "end-of-call-report") {
+      const { call, analysis, artifact, transcript } = message;
+      const structuredData = analysis?.structuredData || {};
+
+      const assignedDoctor = await autoAssignDoctor();
+
+      const callData = {
+        vapiCallId: call.id,
+        timestamp: new Date(call.startedAt || new Date()),
+        customerNumber: call.customer?.number || "Web Call",
+        
+        chiefComplaint: structuredData.chiefComplaint,
+        doctorSummary: structuredData.doctorSummary,
+        recommendedAction: structuredData.recommendedAction,
+        symptomCategory: structuredData.symptomCategory,
+        triageGrade: structuredData.triageGrade as any,
+        severityScale: structuredData.severityScale,
+        redFlagsPresent: structuredData.redFlagsPresent || false,
+        riskFactors: structuredData.riskFactors || {},
+
+        transcript: transcript || message.transcript,
+        recordingUrl: artifact?.recordingUrl || message.recordingUrl,
+
+        status: "assigned" as const,
+        assignedDoctor,
+      };
+
+      await db.insert(triageCalls)
+        .values(callData)
+        .onConflictDoUpdate({
+          target: triageCalls.vapiCallId,
+          set: callData,
+        });
+
+      return NextResponse.json({ success: true, assignedTo: assignedDoctor });
+    }
+
     return NextResponse.json({ received: true });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Webhook Error:", error);
-    return NextResponse.json(
-      { error: "Webhook processing failed" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Failed", details: error.message }, { status: 500 });
   }
 }
 
 export async function GET() {
-  const calls = await getCalls();
-  return NextResponse.json(calls);
+  try {
+    const calls = await db.query.triageCalls.findMany({
+      orderBy: (table: any, { desc }: any) => [desc(table.timestamp)],
+    });
+    return NextResponse.json(calls);
+  } catch (error) {
+    return NextResponse.json({ error: "Failed" }, { status: 500 });
+  }
 }
 
 export async function PATCH(req: Request) {
   try {
-    const { id, assignedDoctor } = await req.json();
-    const calls = await getCalls();
-    const index = calls.findIndex((c: any) => c.id === id);
-
-    if (index > -1) {
-      calls[index].assignedDoctor = assignedDoctor;
-      calls[index].status = "assigned";
-      await saveCalls(calls);
-      return NextResponse.json(calls[index]);
-    }
-
-    return NextResponse.json({ error: "Call not found" }, { status: 404 });
-  } catch (error) {
-    return NextResponse.json(
-      { error: "Failed to update call" },
-      { status: 500 },
-    );
+    const { id, assignedDoctor, status } = await req.json();
+    const updated = await db.update(triageCalls)
+      .set({ assignedDoctor, status: (status as any) || "assigned" })
+      .where(eq(triageCalls.vapiCallId, id))
+      .returning();
+    return NextResponse.json(updated[0] || { error: "Not found" });
+  } catch (error: any) {
+    return NextResponse.json({ error: "Failed", details: error.message }, { status: 500 });
   }
 }
