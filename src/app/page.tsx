@@ -3,6 +3,8 @@
 import React, { useState, useRef, useEffect } from "react";
 import useSWR from "swr";
 import DashboardLayout from "@/components/DashboardLayout";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -23,6 +25,11 @@ type CallReport = {
   severityScale: number | null;
   riskFactors: any;
   patientId: string | null;
+  carePlan: string | null;
+  secondOpinion: string | null;
+  icd10Code: string | null;
+  billingDescription: string | null;
+  chatHistory: any;
 };
 
 const DOCTORS = [
@@ -65,12 +72,14 @@ export default function OverviewPage() {
           summary: selectedCase.doctorSummary,
           complaint: selectedCase.chiefComplaint,
           grade: selectedCase.triageGrade,
-          transcript: selectedCase.transcript
+          transcript: selectedCase.transcript,
+          callId: selectedCase.vapiCallId
         }),
       });
       if (res.ok) {
         const data = await res.json();
         setAiInsights(data);
+        mutate();
       }
     } catch (err) {
       console.error("AI Insight Error:", err);
@@ -85,7 +94,10 @@ export default function OverviewPage() {
     
     const userMsg = chatMessage;
     setChatMessage("");
-    setChatHistory(prev => [...prev, { role: 'user', text: userMsg }]);
+    
+    // Add user message to history
+    const newHistoryBeforeStream = [...chatHistory, { role: 'user' as const, text: userMsg }];
+    setChatHistory(newHistoryBeforeStream);
     setIsChatLoading(true);
 
     try {
@@ -95,13 +107,35 @@ export default function OverviewPage() {
         body: JSON.stringify({
           transcript: selectedCase.transcript,
           message: userMsg,
-          history: chatHistory.map(h => ({ role: h.role, parts: [{ text: h.text }] }))
+          history: chatHistory.map(h => ({ role: h.role, parts: [{ text: h.text }] })),
+          callId: selectedCase.vapiCallId
         }),
       });
-      if (res.ok) {
-        const data = await res.json();
-        setChatHistory(prev => [...prev, { role: 'model', text: data.text }]);
+
+      if (!res.ok) throw new Error("Failed to fetch");
+
+      const reader = res.body?.getReader();
+      const decoder = new TextDecoder();
+      let assistantMsg = "";
+
+      // Add a placeholder for the assistant's message in the state
+      setChatHistory(prev => [...prev, { role: 'model', text: "" }]);
+
+      while (true) {
+        const { done, value } = await reader!.read();
+        if (done) break;
+        
+        const chunk = decoder.decode(value);
+        assistantMsg += chunk;
+        
+        // Update only the last message (the assistant's current stream)
+        setChatHistory(prev => {
+          const updated = [...prev];
+          updated[updated.length - 1] = { role: 'model', text: assistantMsg };
+          return updated;
+        });
       }
+      mutate(); // Sync with DB
     } catch (err) {
       console.error("Chat Error:", err);
     } finally {
@@ -110,8 +144,24 @@ export default function OverviewPage() {
   };
 
   useEffect(() => {
-    setAiInsights(null);
-    setChatHistory([]);
+    if (selectedCase) {
+      if (selectedCase.carePlan) {
+        setAiInsights({
+          carePlan: selectedCase.carePlan,
+          secondOpinion: selectedCase.secondOpinion || "",
+          icd10Code: selectedCase.icd10Code || "",
+          billingDescription: selectedCase.billingDescription || ""
+        });
+      } else {
+        setAiInsights(null);
+      }
+      
+      if (selectedCase.chatHistory) {
+        setChatHistory(selectedCase.chatHistory as any);
+      } else {
+        setChatHistory([]);
+      }
+    }
     setChatMessage("");
     setActiveTab("analysis");
   }, [selectedCaseId]);
@@ -314,7 +364,7 @@ export default function OverviewPage() {
                                  className="text-[10px] font-black text-primary uppercase flex items-center gap-1 hover:underline disabled:opacity-50"
                                >
                                   <span className={`material-symbols-outlined text-xs ${isAiLoading ? 'animate-spin' : ''}`}>bolt</span> 
-                                  Run Gemini 2.0 Analysis
+                                  Run Gemini 2.5 Analysis
                                </button>
                              )}
                           </div>
@@ -339,7 +389,7 @@ export default function OverviewPage() {
 
                              <div className="bg-slate-900 p-6 rounded-3xl text-white shadow-xl border border-slate-800">
                                 <h5 className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                   <span className="material-symbols-outlined text-sm">auto_awesome</span> Gemini 2.0 - Patient Care Plan
+                                   <span className="material-symbols-outlined text-sm">auto_awesome</span> Gemini 2.5 - Patient Care Plan
                                 </h5>
                                 <p className="text-sm text-slate-300 leading-relaxed font-medium">{aiInsights.carePlan}</p>
                                 <button className="mt-6 w-full py-3 bg-white/10 hover:bg-white/20 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2">
@@ -364,7 +414,7 @@ export default function OverviewPage() {
                             {chatHistory.map((chat, i) => (
                               <div key={i} className={`flex ${chat.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                                  <div className={`max-w-[85%] p-4 rounded-3xl text-sm font-medium leading-relaxed ${chat.role === 'user' ? 'bg-primary text-white rounded-br-sm' : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-bl-sm shadow-sm'}`}>
-                                    {chat.text}
+                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{chat.text}</ReactMarkdown>
                                  </div>
                               </div>
                             ))}
