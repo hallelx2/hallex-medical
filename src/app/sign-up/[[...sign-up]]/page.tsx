@@ -48,7 +48,7 @@ export default function SignUpPage() {
     setError("");
 
     try {
-      const completeSignUp: any = await signUp.attemptEmailAddressVerification({ code });
+      const completeSignUp: any = await (signUp as any).attemptEmailAddressVerification({ code });
       if (completeSignUp.status === "complete") {
         if (setActive) {
           await setActive({ session: completeSignUp.createdSessionId });
