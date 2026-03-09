@@ -26,6 +26,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "System configuration error" }, { status: 500 });
   }
 
+  // Check for private key
+  if (!process.env.VAPI_PRIVATE_KEY) {
+    console.error("VAPI_PRIVATE_KEY is missing from environment");
+    return NextResponse.json({ error: "Vapi Private Key missing" }, { status: 500 });
+  }
+
   // 4) Audit Outbound Call Requested
   await writeAudit({
     actorType: "USER",
@@ -37,18 +43,28 @@ export async function POST(req: Request) {
   });
 
   try {
+    console.log("Fetching Vapi API with Authorization Header...");
+    
+    // Increased timeout logic via AbortController
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
     const response = await fetch("https://api.vapi.ai/call", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.VAPI_PRIVATE_KEY}`,
+        "Authorization": `Bearer ${process.env.VAPI_PRIVATE_KEY.trim()}`,
       },
       body: JSON.stringify({
         assistantId: VAPI_ASSISTANT_ID,
         phoneNumberId: VAPI_PHONE_NUMBER_ID,
         customer: { number: phoneNumber },
       }),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
+    console.log("Vapi Response Status:", response.status);
 
     const data = await response.json();
 

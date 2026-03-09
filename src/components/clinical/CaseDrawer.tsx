@@ -176,6 +176,15 @@ export default function CaseDrawer({ selectedCase, isOpen, onClose, onMutate, do
   };
 
   const triggerOutboundCall = async () => {
+    if (!selectedCase) return;
+    
+    // Proactive Validation: Vapi Free Tier only supports US numbers (+1)
+    const isUSNumber = selectedCase.customerNumber.startsWith("+1") || selectedCase.customerNumber.startsWith("1");
+    if (!isUSNumber) {
+      alert("Outbound restricted: Vapi Free Tier only supports US (+1) numbers. Please verify the patient's phone format.");
+      return;
+    }
+
     setIsCallingOutbound(true);
     try {
       const res = await fetch("/api/call", {
@@ -191,7 +200,14 @@ export default function CaseDrawer({ selectedCase, isOpen, onClose, onMutate, do
         alert("Outbound call successfully initiated.");
       } else {
         const error = await res.json();
-        alert(`Failed to initiate call: ${error.details || 'Unknown error'}`);
+        const errorMessage = error.details || 'Unknown error';
+        
+        // Handle the specific Vapi international restriction error
+        if (errorMessage.toLowerCase().includes("international")) {
+           alert("Call Failed: This system is currently configured for US-only triage. International calling is restricted by the Vapi provider tier.");
+        } else {
+           alert(`Failed to initiate call: ${errorMessage}`);
+        }
       }
     } catch (err) {
       console.error("Outbound Call Error:", err);
