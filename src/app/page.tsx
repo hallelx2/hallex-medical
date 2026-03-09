@@ -11,6 +11,7 @@ type CallReport = {
   vapiCallId: string;
   timestamp: string;
   customerNumber: string;
+  direction: "inbound" | "outbound";
   doctorSummary: string | null;
   chiefComplaint: string | null;
   recommendedAction: string | null;
@@ -187,6 +188,7 @@ export default function OverviewPage() {
               <thead>
                 <tr className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 text-[10px] uppercase font-bold tracking-[0.1em]">
                   <th className="px-6 py-4">Interaction</th>
+                  <th className="px-6 py-4 text-center">Route</th>
                   <th className="px-6 py-4">Clinical Status</th>
                   <th className="px-6 py-4">AI Processing</th>
                   <th className="px-6 py-4">Clinical Lead</th>
@@ -210,6 +212,12 @@ export default function OverviewPage() {
                           <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{new Date(call.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span>
                         </div>
                       </div>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                       <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter ${call.direction === 'outbound' ? 'bg-indigo-50 text-indigo-600 border border-indigo-100' : 'bg-blue-50 text-primary border border-blue-100'}`}>
+                          <span className="material-symbols-outlined text-[14px]">{call.direction === 'outbound' ? 'outbound' : 'call_received'}</span>
+                          {call.direction}
+                       </span>
                     </td>
                     <td className="px-6 py-4">
                        <div className="flex flex-col gap-1.5">

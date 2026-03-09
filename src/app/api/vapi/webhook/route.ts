@@ -13,6 +13,9 @@ const DOCTORS = [
   "Dr. Sarah Patel"
 ];
 
+const INBOUND_ASSISTANT_ID = "64414234-62a2-4f9b-95d5-5dd4a50bb51e";
+const OUTBOUND_ASSISTANT_ID = "57cb3899-705b-4304-b7fb-59b1230fc1f1";
+
 async function getOrCreatePatient(phoneNumber: string) {
   const existing = await db.query.patients.findFirst({
     where: eq(patients.phoneNumber, phoneNumber),
@@ -85,18 +88,21 @@ export async function POST(req: Request) {
     if (message.type === 'call.started') {
       const phoneNumber = message.call?.customer?.number || 'Web Call';
       const patientId = await getOrCreatePatient(phoneNumber);
+      const assistantId = message.call?.assistantId;
+      const direction = assistantId === OUTBOUND_ASSISTANT_ID ? "outbound" : "inbound";
 
       await db.insert(triageCalls)
         .values({
           vapiCallId,
           patientId,
+          direction,
           customerNumber: phoneNumber,
           callStartedAt: new Date(),
           status: 'pending'
         })
         .onConflictDoUpdate({
           target: triageCalls.vapiCallId,
-          set: { callStartedAt: new Date() }
+          set: { callStartedAt: new Date(), direction }
         });
 
       await writeAudit({
@@ -106,7 +112,7 @@ export async function POST(req: Request) {
         eventType: "CASE_STATE_CHANGED",
         previousState: "NULL",
         newState: "pending",
-        metadata: { phoneNumber },
+        metadata: { phoneNumber, direction },
         requestId,
       });
 
@@ -136,12 +142,15 @@ export async function POST(req: Request) {
       
       const phoneNumber = call.customer?.number || "Web Call";
       const patientId = await getOrCreatePatient(phoneNumber);
+      const assistantId = call.assistantId;
+      const direction = assistantId === OUTBOUND_ASSISTANT_ID ? "outbound" : "inbound";
 
       const assignedDoctor = await autoAssignDoctor();
 
       const callData = {
         vapiCallId: call.id,
         patientId,
+        direction,
         timestamp: new Date(call.startedAt || new Date()),
         customerNumber: phoneNumber,
         

@@ -37,7 +37,7 @@ type CaseDrawerProps = {
 };
 
 export default function CaseDrawer({ selectedCase, isOpen, onClose, onMutate, doctors }: CaseDrawerProps) {
-  const [activeTab, setActiveTab] = useState<"analysis" | "chat" | "transcript">("analysis");
+  const [activeTab, setActiveTab] = useState<"analysis" | "chat" | "transcript" | "history">("analysis");
   const [isAssigning, setIsAssigning] = useState(false);
   
   // AI State
@@ -49,6 +49,10 @@ export default function CaseDrawer({ selectedCase, isOpen, onClose, onMutate, do
   const [chatMessage, setChatMessage] = useState("");
   const [chatHistory, setChatHistory] = useState<{ role: 'user' | 'model'; text: string }[]>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
+
+  // History State
+  const [patientHistory, setPatientHistory] = useState<CallReport[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
 
   useEffect(() => {
     if (selectedCase) {
@@ -68,10 +72,30 @@ export default function CaseDrawer({ selectedCase, isOpen, onClose, onMutate, do
       } else {
         setChatHistory([]);
       }
+
+      // Fetch History
+      if (selectedCase.patientId) {
+        fetchHistory(selectedCase.patientId, selectedCase.vapiCallId);
+      }
     }
     setChatMessage("");
     setActiveTab("analysis");
   }, [selectedCase?.vapiCallId]);
+
+  const fetchHistory = async (patientId: string, currentId: string) => {
+    setIsHistoryLoading(true);
+    try {
+      const res = await fetch(`/api/patients/history?patientId=${patientId}&excludeCallId=${currentId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setPatientHistory(data);
+      }
+    } catch (err) {
+      console.error("History Error:", err);
+    } finally {
+      setIsHistoryLoading(false);
+    }
+  };
 
   if (!isOpen || !selectedCase) return null;
 
@@ -226,12 +250,59 @@ export default function CaseDrawer({ selectedCase, isOpen, onClose, onMutate, do
                  <span className="material-symbols-outlined text-sm">{tab.icon}</span>
                  {tab.label}
                </button>
-             ))}
-          </div>
-        </div>
+               ))}
+               <button
+               onClick={() => setActiveTab('history')}
+               className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'history' ? 'bg-white text-slate-900 shadow-lg' : 'text-white/60 hover:text-white hover:bg-white/5'}`}
+               >
+               <span className="material-symbols-outlined text-sm">history</span>
+               History
+               </button>
+               </div>
+               </div>
 
-        <div className="flex-1 overflow-y-auto p-8 custom-scrollbar bg-slate-50/30 dark:bg-slate-900/30">
-          {activeTab === 'analysis' && (
+               <div className="flex-1 overflow-y-auto p-8 custom-scrollbar bg-slate-50/30 dark:bg-slate-900/30">
+               {activeTab === 'history' && (
+               <div className="space-y-6 animate-in fade-in duration-500 font-jakarta">
+               <div className="flex justify-between items-center mb-2">
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Patient Medical History (Vapi Logs)</h4>
+                  <span className="bg-primary/10 text-primary px-2 py-1 rounded text-[9px] font-black">{patientHistory.length} PREVIOUS SESSIONS</span>
+               </div>
+
+               {isHistoryLoading ? (
+                 <div className="py-20 flex flex-col items-center opacity-30">
+                    <div className="size-8 border-2 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
+                    <p className="text-xs font-bold uppercase tracking-widest">Retrieving EMR context...</p>
+                 </div>
+               ) : patientHistory.length === 0 ? (
+                 <div className="py-20 text-center bg-white dark:bg-slate-800 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700">
+                    <span className="material-symbols-outlined text-4xl text-slate-200 mb-4">person_search</span>
+                    <p className="text-sm font-bold text-slate-400">No previous interactions found for this patient.</p>
+                 </div>
+               ) : (
+                 <div className="space-y-4">
+                    {patientHistory.map((pastCall) => (
+                      <div key={pastCall.vapiCallId} className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm">
+                         <div className="flex justify-between items-start mb-3">
+                            <span className="text-[10px] font-black text-slate-400 uppercase">{new Date(pastCall.timestamp).toLocaleDateString(undefined, { dateStyle: 'long' })}</span>
+                            <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${pastCall.priority === 'High' ? 'text-red-500' : 'text-emerald-500'}`}>{pastCall.priority} PRIORITY</span>
+                         </div>
+                         <p className="text-xs font-bold text-slate-700 dark:text-slate-200 line-clamp-2 leading-relaxed italic">"{pastCall.doctorSummary || pastCall.chiefComplaint}"</p>
+                         <div className="mt-4 pt-4 border-t border-slate-50 dark:border-slate-700 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                               <span className="size-1.5 rounded-full bg-primary"></span>
+                               <span className="text-[9px] font-black text-slate-400 uppercase">Handled by: {pastCall.assignedDoctor || 'N/A'}</span>
+                            </div>
+                            <button className="text-[9px] font-black text-primary uppercase tracking-widest hover:underline">View Transcript</button>
+                         </div>
+                      </div>
+                    ))}
+                 </div>
+               )}
+               </div>
+               )}
+               {activeTab === 'analysis' && (
+
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500 font-jakarta">
               <section>
                 <div className="flex justify-between items-center mb-4">

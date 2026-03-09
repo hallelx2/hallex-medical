@@ -36,6 +36,7 @@ export const triageCalls = pgTable("triage_calls", {
   id: uuid("id").primaryKey().defaultRandom(),
   vapiCallId: text("vapi_call_id").unique().notNull(),
   patientId: uuid("patient_id").references(() => patients.id),
+  direction: text("direction").default("inbound").notNull(), // 'inbound' or 'outbound'
   timestamp: timestamp("timestamp").defaultNow().notNull(),
   callStartedAt: timestamp("call_started_at"),
   callEndedAt: timestamp("call_ended_at"),
