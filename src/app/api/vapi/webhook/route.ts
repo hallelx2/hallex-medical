@@ -13,8 +13,8 @@ const DOCTORS = [
   "Dr. Sarah Patel"
 ];
 
-const INBOUND_ASSISTANT_ID = "64414234-62a2-4f9b-95d5-5dd4a50bb51e";
-const OUTBOUND_ASSISTANT_ID = "57cb3899-705b-4304-b7fb-59b1230fc1f1";
+const INBOUND_ASSISTANT_ID = process.env.VAPI_INBOUND_ASSISTANT_ID;
+const OUTBOUND_ASSISTANT_ID = process.env.VAPI_OUTBOUND_ASSISTANT_ID;
 
 async function getOrCreatePatient(phoneNumber: string) {
   const existing = await db.query.patients.findFirst({

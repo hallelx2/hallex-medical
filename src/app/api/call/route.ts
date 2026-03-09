@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { writeAudit } from "@/lib/audit";
 import { auth } from "@clerk/nextjs/server";
 
-const VAPI_ASSISTANT_ID = "57cb3899-705b-4304-b7fb-59b1230fc1f1"; // St. Mary’s Outbound Care Coordinator
+const VAPI_ASSISTANT_ID = process.env.VAPI_OUTBOUND_ASSISTANT_ID;
+const VAPI_PHONE_NUMBER_ID = process.env.VAPI_PHONE_NUMBER_ID;
 
 export async function POST(req: Request) {
   const { userId } = await auth();
@@ -15,6 +16,11 @@ export async function POST(req: Request) {
 
   if (!phoneNumber) {
     return NextResponse.json({ error: "Phone number required" }, { status: 400 });
+  }
+
+  if (!VAPI_ASSISTANT_ID || !VAPI_PHONE_NUMBER_ID) {
+    console.error("Vapi Environment Variables missing");
+    return NextResponse.json({ error: "System configuration error" }, { status: 500 });
   }
 
   // 4) Audit Outbound Call Requested
@@ -36,6 +42,7 @@ export async function POST(req: Request) {
       },
       body: JSON.stringify({
         assistantId: VAPI_ASSISTANT_ID,
+        phoneNumberId: VAPI_PHONE_NUMBER_ID,
         customer: { number: phoneNumber },
       }),
     });
