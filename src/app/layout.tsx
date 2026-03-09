@@ -18,6 +18,8 @@ export const metadata: Metadata = {
   description: "Advanced AI Voice Triage and Patient Management Dashboard",
 };
 
+import { Toaster } from "sonner";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -43,6 +45,7 @@ export default function RootLayout({
           }}
         >
           {children}
+          <Toaster position="top-right" expand={true} richColors closeButton />
         </ClerkProvider>
       </body>
     </html>
