@@ -2,10 +2,13 @@ import { NextResponse } from "next/server";
 import { writeAudit } from "@/lib/audit";
 import { auth } from "@clerk/nextjs/server";
 
-const VAPI_ASSISTANT_ID = process.env.VAPI_OUTBOUND_ASSISTANT_ID;
-const VAPI_PHONE_NUMBER_ID = process.env.VAPI_PHONE_NUMBER_ID;
+const VAPI_ASSISTANT_ID = process.env.VAPI_OUTBOUND_ASSISTANT_ID?.trim();
+const VAPI_PHONE_NUMBER_ID = process.env.VAPI_PHONE_NUMBER_ID?.trim();
 
 export async function POST(req: Request) {
+  console.log("VAPI_ASSISTANT_ID:", VAPI_ASSISTANT_ID);
+  console.log("VAPI_PHONE_NUMBER_ID:", VAPI_PHONE_NUMBER_ID);
+  
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
