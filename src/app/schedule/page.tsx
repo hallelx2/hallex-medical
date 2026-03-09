@@ -15,7 +15,23 @@ const DOCTORS_LIST = [
 
 export default function SchedulePage() {
   const [expandedDoctor, setExpandedDoctor] = useState<string | null>(null);
-  const { data: calls = [] } = useSWR<any[]>("/api/vapi/webhook", fetcher);
+  const [isRecalibrating, setIsRecalibrating] = useState(false);
+  const { data: calls = [], mutate } = useSWR<any[]>("/api/vapi/webhook", fetcher);
+
+  const handleRecalibrate = async () => {
+    setIsRecalibrating(true);
+    try {
+      const res = await fetch("/api/vapi/recalibrate", { method: "POST" });
+      if (res.ok) {
+        alert("Clinical algorithm recalibrated. Load balancing complete.");
+        mutate(); // Refresh the counts
+      }
+    } catch (err) {
+      console.error("Recalibration UI Error:", err);
+    } finally {
+      setIsRecalibrating(false);
+    }
+  };
 
   const getAssignedPatients = (doctorName: string) => {
     return calls.filter(c => c.assignedDoctor === doctorName && c.status === 'assigned');
@@ -26,12 +42,22 @@ export default function SchedulePage() {
       <div className="p-8 font-jakarta">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h3 className="text-2xl font-bold tracking-tight">Medical Staff Schedule</h3>
+            <h3 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Medical Staff Schedule</h3>
             <p className="text-sm text-slate-500 font-medium mt-1">Real-time occupancy and patient load management.</p>
           </div>
           <div className="flex gap-2">
             <button className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-4 py-2 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-50 transition-all flex items-center gap-2">
               <span className="material-symbols-outlined text-sm">calendar_today</span> March 2026
+            </button>
+            <button 
+              onClick={handleRecalibrate}
+              disabled={isRecalibrating}
+              className="bg-primary text-white px-4 py-2 rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2 disabled:opacity-50"
+            >
+              <span className={`material-symbols-outlined text-sm ${isRecalibrating ? 'animate-spin' : ''}`}>
+                {isRecalibrating ? 'refresh' : 'auto_mode'}
+              </span> 
+              {isRecalibrating ? 'Recalibrating...' : 'Recalibrate Queue'}
             </button>
           </div>
         </div>
@@ -114,8 +140,12 @@ export default function SchedulePage() {
                 <div className="w-full h-1 bg-white/20 rounded-full mb-8 overflow-hidden">
                    <div className="h-full bg-white w-3/4"></div>
                 </div>
-                <button className="w-full bg-white text-primary font-black py-4 rounded-2xl hover:bg-blue-50 transition-all active:scale-95 uppercase tracking-widest text-xs">
-                  Recalibrate Algorithm
+                <button 
+                  onClick={handleRecalibrate}
+                  disabled={isRecalibrating}
+                  className="w-full bg-white text-primary font-black py-4 rounded-2xl hover:bg-blue-50 transition-all active:scale-95 uppercase tracking-widest text-xs disabled:opacity-50"
+                >
+                  {isRecalibrating ? 'Recalibrating...' : 'Recalibrate Algorithm'}
                 </button>
              </div>
           </div>

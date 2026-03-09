@@ -1,8 +1,9 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import useSWR from "swr";
+import CaseDrawer from "@/components/clinical/CaseDrawer";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -12,13 +13,38 @@ type Case = {
   customerNumber: string;
   doctorSummary: string | null;
   chiefComplaint: string | null;
+  recommendedAction: string | null;
+  transcript: string | null;
+  recordingUrl: string | null;
+  status: "pending" | "assigned" | "completed";
   assignedDoctor: string | null;
-  status: string;
+  priority: "High" | "Medium" | "Low";
+  redFlagsPresent: boolean;
+  triageGrade: string | null;
+  severityScale: number | null;
+  riskFactors: any;
+  patientId: string | null;
   carePlan: string | null;
+  secondOpinion: string | null;
+  icd10Code: string | null;
+  billingDescription: string | null;
+  chatHistory: any;
+};
+
+type DbDoctor = {
+  id: string;
+  name: string;
+  specialty: string | null;
+  role: string;
 };
 
 export default function CasesPage() {
-  const { data: cases = [], isLoading } = useSWR<Case[]>("/api/vapi/webhook", fetcher);
+  const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
+  
+  const { data: cases = [], isLoading, mutate } = useSWR<Case[]>("/api/vapi/webhook", fetcher);
+  const { data: dbDoctors = [] } = useSWR<DbDoctor[]>("/api/doctors", fetcher);
+
+  const selectedCase = cases.find(c => c.vapiCallId === selectedCaseId);
 
   return (
     <DashboardLayout>
@@ -28,9 +54,6 @@ export default function CasesPage() {
             <h3 className="text-2xl font-bold tracking-tight">Patient Cases</h3>
             <p className="text-sm text-slate-500 font-medium mt-1">Unified clinical view of all triage interactions.</p>
           </div>
-          <button className="bg-primary text-white px-4 py-2 rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2">
-            <span className="material-symbols-outlined text-sm">add</span> New Manual Case
-          </button>
         </div>
         
         {isLoading && (
@@ -48,7 +71,11 @@ export default function CasesPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             {cases.map((c) => (
-              <div key={c.vapiCallId} className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl hover:border-primary/20 transition-all group relative overflow-hidden">
+              <div 
+                key={c.vapiCallId} 
+                onClick={() => setSelectedCaseId(c.vapiCallId)}
+                className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl hover:border-primary/20 transition-all group relative overflow-hidden cursor-pointer"
+              >
                 {c.carePlan && (
                   <div className="absolute top-0 right-0 p-2">
                      <span className="size-2 bg-emerald-500 rounded-full block animate-pulse"></span>
@@ -76,16 +103,22 @@ export default function CasesPage() {
                          {c.assignedDoctor ? c.assignedDoctor : 'PENDING'}
                       </span>
                    </div>
-                   {c.carePlan && (
-                     <span className="text-[9px] font-black text-emerald-600 uppercase flex items-center gap-1">
-                        <span className="material-symbols-outlined text-[12px]">auto_awesome</span> ANALYZED
-                     </span>
-                   )}
+                   <button className="text-primary hover:bg-primary/5 p-1.5 rounded-lg transition-colors group-hover:translate-x-1 duration-300">
+                      <span className="material-symbols-outlined text-lg">chevron_right</span>
+                   </button>
                 </div>
               </div>
             ))}
           </div>
         )}
+
+        <CaseDrawer 
+          isOpen={!!selectedCaseId}
+          selectedCase={selectedCase || null}
+          onClose={() => setSelectedCaseId(null)}
+          onMutate={mutate}
+          doctors={dbDoctors.map(d => ({ id: d.id, name: d.name, specialty: d.specialty, color: 'bg-primary/10' }))}
+        />
       </div>
     </DashboardLayout>
   );

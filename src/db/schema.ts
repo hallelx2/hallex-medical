@@ -85,3 +85,14 @@ export const auditLogs = pgTable("audit_logs", {
   requestId: text("request_id").notNull(),
   idempotencyKey: text("idempotency_key").unique(),
 });
+
+export const systemSettings = pgTable("system_settings", {
+  id: text("id").primaryKey().default("current"), // Singleton row
+  vapiPublicKey: text("vapi_public_key"),
+  webhookUrl: text("webhook_url"),
+  emergencyScreening: boolean("emergency_screening").default(true).notNull(),
+  autoEscalation: boolean("auto_escalation").default(true).notNull(),
+  hipaaLogging: boolean("hipaa_logging").default(true).notNull(),
+  doctorSync: boolean("doctor_sync").default(false).notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
