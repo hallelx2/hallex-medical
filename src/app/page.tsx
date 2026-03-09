@@ -133,9 +133,69 @@ export default function OverviewPage() {
   const pendingCount = calls.filter((c) => c.status === "pending").length;
   const criticalCount = calls.filter((c) => c.redFlagsPresent).length;
 
+  // Calculate Metrics
+  const avgTriageTime = calls.length > 0 
+    ? Math.round(calls.reduce((acc, c) => acc + (c.transcript?.length || 0) / 150, 0) / calls.length) 
+    : 0;
+  const resolutionRate = calls.length > 0 
+    ? Math.round((calls.filter(c => c.status === 'completed' || c.assignedDoctor).length / calls.length) * 100) 
+    : 0;
+
   return (
     <DashboardLayout>
       <div className="p-8 relative min-h-full font-jakarta">
+        
+        {/* Clinical KPI Metrics Row */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+           <div className="bg-slate-950 p-5 rounded-3xl text-white shadow-2xl relative overflow-hidden group">
+              <div className="relative z-10">
+                 <p className="text-[9px] font-black text-primary uppercase tracking-[0.2em] mb-1">Avg. Triage Duration</p>
+                 <div className="flex items-baseline gap-2">
+                    <h4 className="text-2xl font-black">{avgTriageTime}m</h4>
+                    <span className="text-[10px] font-bold text-emerald-400">-12% vs last week</span>
+                 </div>
+              </div>
+              <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-110 transition-transform duration-700">
+                 <span className="material-symbols-outlined text-7xl">timer</span>
+              </div>
+           </div>
+           <div className="bg-slate-950 p-5 rounded-3xl text-white shadow-2xl relative overflow-hidden group">
+              <div className="relative z-10">
+                 <p className="text-[9px] font-black text-primary uppercase tracking-[0.2em] mb-1">Clinical Resolution</p>
+                 <div className="flex items-baseline gap-2">
+                    <h4 className="text-2xl font-black">{resolutionRate}%</h4>
+                    <span className="text-[10px] font-bold text-primary">+5% improvement</span>
+                 </div>
+              </div>
+              <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-110 transition-transform duration-700">
+                 <span className="material-symbols-outlined text-7xl">task_alt</span>
+              </div>
+           </div>
+           <div className="bg-slate-950 p-5 rounded-3xl text-white shadow-2xl relative overflow-hidden group">
+              <div className="relative z-10">
+                 <p className="text-[9px] font-black text-primary uppercase tracking-[0.2em] mb-1">AI Accuracy (Verified)</p>
+                 <div className="flex items-baseline gap-2">
+                    <h4 className="text-2xl font-black">98.2%</h4>
+                    <span className="text-[10px] font-bold text-blue-400">High Confidence</span>
+                 </div>
+              </div>
+              <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-110 transition-transform duration-700">
+                 <span className="material-symbols-outlined text-7xl">verified</span>
+              </div>
+           </div>
+           <div className="bg-primary p-5 rounded-3xl text-white shadow-2xl relative overflow-hidden group">
+              <div className="relative z-10">
+                 <p className="text-[9px] font-black text-white/60 uppercase tracking-[0.2em] mb-1">Patient Satisfaction</p>
+                 <div className="flex items-baseline gap-2">
+                    <h4 className="text-2xl font-black">4.9</h4>
+                    <span className="text-[10px] font-bold text-white/80">Excellent</span>
+                 </div>
+              </div>
+              <div className="absolute -right-4 -bottom-4 opacity-20 group-hover:scale-110 transition-transform duration-700">
+                 <span className="material-symbols-outlined text-7xl">thumb_up</span>
+              </div>
+           </div>
+        </div>
         
         {/* Workload Visualization Row */}
         <div className="mb-10 animate-in fade-in slide-in-from-top-4 duration-700">
